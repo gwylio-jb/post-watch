@@ -1,0 +1,460 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Post_Watch brand tokens (V2.0) ──────────────────────────────────────── */
+
+  /* Base surfaces */
+  --color-base: #F8F9FA;
+  --color-surface: #ffffff;
+  --color-surface-alt: #F0F4F8;
+  --color-border: #E5E7EB;
+  --color-border-strong: #D1D5DB;
+
+  /* Mint — primary accent */
+  --color-mint: #00D9A3;
+  --color-mint-muted: #00B589;
+  --color-mint-subtle: #E6FAF5;
+  --color-accent: #00D9A3;
+  --color-accent-dim: #00B589;
+  --color-accent-soft: #E6FAF5;
+  --color-accent-contrast: #1A2332;
+
+  /*
+   * Accent text tokens — tiered for contrast.
+   * --color-text-accent resolves to the correct variant per theme:
+   *   light mode → -on-light (muted mint, WCAG AA on white)
+   *   dark  mode → -on-dark  (vibrant mint, WCAG AA on navy)
+   * Components should use var(--color-text-accent) rather than hardcoded #00D9A3.
+   */
+  --color-text-accent-on-dark: #00D9A3;
+  --color-text-accent-on-light: #007A5E;
+  --color-text-accent: #007A5E;
+
+  --color-text-violet-on-dark: #A78BFA;
+  --color-text-violet-on-light: #6D28D9;
+  --color-text-violet: #6D28D9;
+
+  --color-text-ember-on-dark: #FF8C5A;
+  --color-text-ember-on-light: #B8320E;
+  --color-text-ember: #B8320E;
+
+  /* Navy — dark structural colour */
+  --color-navy: #1A2332;
+  --color-navy-dark: #111827;
+
+  /* Violet — secondary accent */
+  --color-violet: #8B5CF6;
+  --color-violet-muted: #7C3AED;
+  --color-violet-subtle: #F3F0FF;
+  --color-accent-secondary: #8B5CF6;
+  --color-accent-secondary-soft: #F3F0FF;
+
+  /* Ember — danger / alert */
+  --color-ember: #FF4A1C;
+  --color-ember-muted: #CC3A15;
+  --color-ember-subtle: #FFF1EE;
+  --color-accent-danger: #FF4A1C;
+
+  /* Cloud */
+  --color-cloud: #F8F9FA;
+
+  /* Text */
+  --color-text-primary: #1A2332;
+  --color-text-secondary: #4B5563;
+  --color-text-muted: #9CA3AF;
+
+  /* Status */
+  --color-status-green: #059669;
+  --color-status-amber: #D97706;
+  --color-status-red: #DC2626;
+  --color-status-blue: #0284C7;
+
+  /* Gradients */
+  --gradient-accent: linear-gradient(135deg, #00D9A3 0%, #8B5CF6 100%);
+  --gradient-accent-soft: linear-gradient(135deg, #E6FAF5 0%, #F3F0FF 100%);
+  --gradient-hero: linear-gradient(135deg, #1A2332 0%, #7C3AED 60%, #00D9A3 100%);
+  --gradient-success: linear-gradient(135deg, #059669 0%, #10B981 100%);
+  --gradient-warning: linear-gradient(135deg, #D97706 0%, #F59E0B 100%);
+  --gradient-danger: linear-gradient(135deg, #FF4A1C 0%, #FF8C5A 100%);
+  --gradient-info: linear-gradient(135deg, #0284C7 0%, #38BDF8 100%);
+  --gradient-secondary: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%);
+  --gradient-navy-mint: linear-gradient(135deg, #1A2332 0%, #00D9A3 100%);
+
+  /* Shadows */
+  --shadow-card: 0 4px 24px rgba(26, 35, 50, 0.07), 0 1px 4px rgba(26, 35, 50, 0.05);
+  --shadow-card-hover: 0 8px 32px rgba(26, 35, 50, 0.12), 0 2px 8px rgba(26, 35, 50, 0.08);
+  --shadow-accent: 0 4px 16px rgba(0, 217, 163, 0.35);
+  --shadow-secondary: 0 4px 16px rgba(139, 92, 246, 0.35);
+  --shadow-glass: 0 4px 24px rgba(26, 35, 50, 0.08);
+
+  /* Typography — Post_Watch spec */
+  --font-body: "ingra", "Plus Jakarta Sans", "Nunito Sans", system-ui, sans-serif;
+  --font-display: "azo-sans", "Archivo Black", "Montserrat", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "IBM Plex Mono", monospace;
+}
+
+/* ── Dark theme overrides ─────────────────────────────────────────────────── */
+.dark {
+  --color-base: #1A2332;
+  --color-surface: #1E2A3D;
+  --color-surface-alt: #243248;
+  --color-border: #2D3E55;
+  --color-border-strong: #3A4F6A;
+
+  --color-accent: #00D9A3;
+  --color-accent-dim: #00B589;
+  --color-accent-soft: #0A3D2E;
+  --color-accent-contrast: #1A2332;
+  --color-accent-secondary: #8B5CF6;
+  --color-accent-secondary-soft: #2E1F5E;
+  --color-accent-danger: #FF4A1C;
+
+  --color-text-primary: #F8F9FA;
+  --color-text-secondary: #A8B8CC;
+  --color-text-muted: #6B7F97;
+
+  --color-status-green: #10B981;
+  --color-status-amber: #F59E0B;
+  --color-status-red: #F87171;
+  --color-status-blue: #38BDF8;
+
+  --gradient-hero: linear-gradient(135deg, #0D1929 0%, #7C3AED 60%, #00D9A3 100%);
+  --gradient-secondary: linear-gradient(135deg, #8B5CF6 0%, #C4B5FD 100%);
+
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-accent: 0 4px 16px rgba(0, 217, 163, 0.28);
+  --shadow-secondary: 0 4px 16px rgba(139, 92, 246, 0.35);
+  --shadow-glass: 0 4px 24px rgba(0, 0, 0, 0.3);
+
+  /* Context-aware accent text — switch to the vibrant on-dark variant */
+  --color-text-accent: #00D9A3;
+  --color-text-violet: #A78BFA;
+  --color-text-ember: #FF8C5A;
+}
+
+/* ── Global resets ────────────────────────────────────────────────────────── */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+::selection {
+  background-color: rgba(0, 217, 163, 0.28);
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--color-base);
+  color: var(--color-text-primary);
+  margin: 0;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+/* ── Typography utilities ─────────────────────────────────────────────────── */
+
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 900;
+  letter-spacing: -0.025em;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* ── Gradient utilities ───────────────────────────────────────────────────── */
+
+.bg-gradient-accent      { background: var(--gradient-accent); }
+.bg-gradient-accent-soft { background: var(--gradient-accent-soft); }
+.bg-gradient-success     { background: var(--gradient-success); }
+.bg-gradient-warning     { background: var(--gradient-warning); }
+.bg-gradient-danger      { background: var(--gradient-danger); }
+.bg-gradient-info        { background: var(--gradient-info); }
+.bg-gradient-hero        { background: var(--gradient-hero); }
+.bg-gradient-secondary   { background: var(--gradient-secondary); }
+.bg-gradient-navy-mint   { background: var(--gradient-navy-mint); }
+
+.text-gradient-accent {
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Shadow utilities ─────────────────────────────────────────────────────── */
+
+.shadow-card             { box-shadow: var(--shadow-card); }
+.shadow-card-hover:hover { box-shadow: var(--shadow-card-hover); }
+.shadow-accent           { box-shadow: var(--shadow-accent); }
+.shadow-secondary        { box-shadow: var(--shadow-secondary); }
+
+/* ── Elevated card with grain texture ────────────────────────────────────── */
+/*
+ * The ::after pseudo-element overlays a feTurbulence SVG noise pattern at very
+ * low opacity (0.04 light / 0.06 dark) to give cards a subtle premium texture.
+ * All card children get z-index: 1 so they sit above the grain layer.
+ */
+.card-elevated {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.2s, transform 0.2s;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.card-elevated:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+.card-elevated::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23grain)'/%3E%3C/svg%3E");
+  background-size: 300px 300px;
+}
+
+.dark .card-elevated::after {
+  opacity: 0.06;
+}
+
+.card-elevated > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Glassmorphism "bubble" card variants ────────────────────────────────── */
+/*
+ * Glass cards use backdrop-filter blur + semi-transparent backgrounds.
+ * Grain texture is slightly more visible on glass at 0.05 opacity.
+ * All children get z-index: 1 to sit above the grain layer.
+ */
+.glass-card {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  box-shadow: var(--shadow-glass);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.glass-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23grain)'/%3E%3C/svg%3E");
+  background-size: 300px 300px;
+}
+
+.glass-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Navy glass — for dark hero areas */
+.glass-card-navy {
+  background: rgba(26, 35, 50, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow: var(--shadow-glass);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.glass-card-navy::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23grain)'/%3E%3C/svg%3E");
+  background-size: 300px 300px;
+}
+
+.glass-card-navy > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Mint glass — for highlighted metric cards */
+.glass-card-mint {
+  background: rgba(0, 217, 163, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 217, 163, 0.3);
+  border-radius: 12px;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.glass-card-mint::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23grain)'/%3E%3C/svg%3E");
+  background-size: 300px 300px;
+}
+
+.glass-card-mint > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Striking tile card (V2.1) ───────────────────────────────────────────── */
+/*
+ * A bolder, more visually distinct card used for dashboard metrics, module
+ * landing tiles and scan-report finding blocks. Three accent variants are
+ * available via a data attribute: data-tile-accent="mint" | "violet" | "ember"
+ * (defaults to mint). A large pseudo-gradient corner accent gives each tile
+ * a clear identity at a glance.
+ */
+.card-tile {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-card);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+}
+
+.dark .card-tile {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.card-tile:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
+}
+
+/* Corner gradient accent — mint by default */
+.card-tile::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 217, 163, 0.35) 0%, rgba(0, 217, 163, 0) 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.card-tile[data-tile-accent="violet"]::before {
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.35) 0%, rgba(139, 92, 246, 0) 70%);
+}
+
+.card-tile[data-tile-accent="ember"]::before {
+  background: radial-gradient(circle, rgba(255, 74, 28, 0.32) 0%, rgba(255, 74, 28, 0) 70%);
+}
+
+.dark .card-tile::before {
+  background: radial-gradient(circle, rgba(0, 217, 163, 0.24) 0%, rgba(0, 217, 163, 0) 70%);
+}
+
+.dark .card-tile[data-tile-accent="violet"]::before {
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.28) 0%, rgba(167, 139, 250, 0) 70%);
+}
+
+.dark .card-tile[data-tile-accent="ember"]::before {
+  background: radial-gradient(circle, rgba(255, 140, 90, 0.28) 0%, rgba(255, 140, 90, 0) 70%);
+}
+
+.card-tile > * {
+  position: relative;
+  z-index: 1;
+}
+
+/*
+ * ── Brand primitives (Sprint 7) ─────────────────────────────────────────────
+ *
+ * .mono-tag      — the `// label` Courier kicker that appears above section
+ *                  titles, in PDF covers, and on module headers. Scoped colour
+ *                  via the `--mono-tag-color` custom property so callers can
+ *                  override per-context (mint, violet, inkSoft) without new
+ *                  variant classes.
+ *
+ * .gradient-rule — 2-3pt mint→violet horizontal divider matching the PDF cover
+ *                  page rule. Use as a top-of-section accent or beneath an
+ *                  active sidebar item. Default height is 2px; pass an inline
+ *                  height style if needed.
+ */
+.mono-tag {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: lowercase;
+  color: var(--mono-tag-color, var(--color-text-accent, #007A5E));
+  display: inline-block;
+}
+
+.dark .mono-tag {
+  color: var(--mono-tag-color, #00D9A3);
+}
+
+.mono-tag::before {
+  content: '// ';
+  opacity: 0.7;
+}
+
+.gradient-rule {
+  height: 2px;
+  border: 0;
+  border-radius: 1px;
+  background: linear-gradient(90deg, #00D9A3 0%, #00B589 45%, #7C3AED 100%);
+}
+
+/* ── Print styles ─────────────────────────────────────────────────────────── */
+/*
+ * V2.1 interim: print styles are intentionally minimal. The real export path
+ * (proper PDF generation with page layout, typography, headers/footers) lands
+ * in Sprint 5 as part of the Reports module. Leaving this block mostly empty
+ * avoids `window.print()` producing a half-broken document if a user hits
+ * Cmd+P on any page.
+ */
+
+@media print {
+  html, body {
+    background: #FFFFFF !important;
+    color: #1A2332 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  @page {
+    margin: 1.8cm 1.5cm 2.2cm 1.5cm;
+    size: A4;
+  }
+}

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Mint circle background -->
+  <circle cx="32" cy="32" r="32" fill="#00D9A3"/>
+  <!-- Navy P_ lettermark -->
+  <text
+    x="10"
+    y="44"
+    font-family="'JetBrains Mono', 'Fira Code', monospace"
+    font-weight="600"
+    font-size="30"
+    fill="#1A2332"
+    letter-spacing="-1"
+  >P_</text>
+</svg>

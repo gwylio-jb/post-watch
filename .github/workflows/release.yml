@@ -1,0 +1,88 @@
+name: 'release'
+
+# Triggered every time you push a tag that starts with `v` (e.g. `v2.1.0`).
+# That single push fans out: builds for macOS Intel + Apple Silicon and
+# Windows x86_64; signs each artefact with the Ed25519 private key kept as a
+# secret; uploads them to a GitHub Release; and publishes `latest.json` so
+# already-installed apps see the update on next launch.
+#
+# To cut a release:
+#   1. Bump `version` in src-tauri/tauri.conf.json (e.g. 2.1.0 → 2.1.1)
+#   2. Commit + push to main
+#   3. git tag v2.1.1 && git push --tags
+#   4. Watch this workflow run in GitHub → Actions
+#
+# Required repository secrets:
+#   TAURI_SIGNING_PRIVATE_KEY            — Ed25519 private key (full file contents)
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD   — the password you set during keygen
+#   GITHUB_TOKEN is provided automatically by Actions; no need to set it.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+jobs:
+  release:
+    permissions:
+      contents: write   # tauri-action needs this to create/edit releases
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest'   # Apple Silicon (arm64)
+            args: '--target aarch64-apple-darwin'
+          - platform: 'macos-latest'   # Intel
+            args: '--target x86_64-apple-darwin'
+          - platform: 'windows-latest'
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # `targets:` is required for cross-arch macOS builds — without it
+          # rustup won't have the aarch64/x86_64 toolchain installed and the
+          # build fails with "target not found".
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Cache Rust artefacts
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: Install dependencies
+        run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Ed25519 keypair the desktop app's updater verifies against. Without
+          # these, the build still succeeds but the produced `.sig` files are
+          # rejected by every installed app — i.e. updates won't apply.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          # `__VERSION__` is replaced by tauri-action with the version from
+          # tauri.conf.json — keeps the release name consistent with what the
+          # built artefacts report.
+          tagName: v__VERSION__
+          releaseName: 'Post_Watch v__VERSION__'
+          releaseBody: |
+            See the assets below to download and install this version.
+
+            **Auto-update note:** if you already have v2.1.0+ installed,
+            you don't need to download anything — the app will offer the
+            update on next launch.
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
