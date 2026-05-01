@@ -41,7 +41,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/gwylio/post-watch/releases/latest/download/latest.json"
+        "https://github.com/gwylio-jb/post-watch/releases/latest/download/latest.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVCQjFFRUVFMjZDMUU5OEMKUldTTTZjRW03dTZ4Njk0SGdRMklpeFVTRmI0ZFNRSS9qNUhFeWh4WUliQXJOaWNRMmhlQWV5eTcK"
     }

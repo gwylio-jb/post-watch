@@ -149,7 +149,7 @@ The app is wired up to auto-update from GitHub Releases. **You only need to do t
 
 - `tauri-plugin-updater` and `tauri-plugin-process` registered in the Rust app
 - `bundle.createUpdaterArtifacts: true` in `tauri.conf.json` (build emits signed `.tar.gz` / `.zip` alongside the `.dmg`/`.msi`)
-- `plugins.updater.endpoints` pointing at `https://github.com/gwylio/post-watch/releases/latest/download/latest.json` (change the URL if you use a different repo name — see Step 2 below)
+- `plugins.updater.endpoints` pointing at `https://github.com/gwylio-jb/post-watch/releases/latest/download/latest.json`
 - `pubkey: "REPLACE_ME_WITH_PUBLIC_KEY_FROM_TAURI_SIGNER_GENERATE"` placeholder — you'll fill this in at Step 1
 - `<UpdatePrompt />` mounted in `App.tsx` — checks for updates 3 seconds after launch and shows a corner toast if one is available
 - `.github/workflows/release.yml` — builds for Mac (Intel + Apple Silicon) + Windows whenever you push a `v*` tag
