@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, X, CheckCircle2, Loader2, AlertCircle, Sparkles } from 'lucide-react';
+import { Download, X, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
 
 /*
  * In-app auto-update prompt.
