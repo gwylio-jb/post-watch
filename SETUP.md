@@ -196,7 +196,7 @@ Add **two** secrets:
 
 | Name | Value |
 |---|---|
-| `TAURI_SIGNING_PRIVATE_KEY` | A **base64-encoded, single-line** version of `~/.tauri/post-watch.key`. Run `base64 -i ~/.tauri/post-watch.key -b 0 \| pbcopy` to put it on the clipboard. The `-b 0` is critical — without it macOS's `base64` wraps at 76 columns and the embedded newlines break Tauri's decoder. |
+| `TAURI_SIGNING_PRIVATE_KEY` | The **literal file content** of `~/.tauri/post-watch.key`. The file is already stored base64-encoded on disk — don't re-encode it. Run `cat ~/.tauri/post-watch.key \| pbcopy` and paste. If you double-encode (e.g. via `base64 -i ...`), the CI signing step fails with "Missing encoded key in secret key" because it decodes once and gets a still-base64 blob it can't parse. |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | The password you set in Step 1 |
 
 ### Step 5 — Cut the first release
