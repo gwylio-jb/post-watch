@@ -7,7 +7,7 @@ import { getExplainer } from '../../data/checkExplainers';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import type { Client } from '../../data/types';
 import { UNASSIGNED_CLIENT_ID } from '../../utils/clientMigration';
-import { explainFindingPrompt, remediationSnippetPrompt } from '../../utils/ai/prompts';
+import { explainFindingPrompt, remediationSnippetPrompt, actionPlanPrompt } from '../../utils/ai/prompts';
 
 // AiPanel is heavyweight (modal + fetch glue); lazy-loaded so it only enters
 // the chunk graph when the user actually opens it.
@@ -359,6 +359,11 @@ export default function ScanReport({ report, onRescan, onBack }: ScanReportProps
   const [ai] = useLocalStorage<AiSettings>('ai-settings', {});
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  // Top-level AI panel for the cross-finding action plan. Kept separate from
+  // FindingRow's per-finding `aiOpen` so the two never compete for the modal
+  // surface — opening one closes whatever's already open.
+  const [planAiOpen, setPlanAiOpen] = useState(false);
+  const aiEnabled = !!ai.model?.trim();
 
   // Resolve the full client record (used by AI prompts for industry context)
   // plus the display name for the PDF cover.
@@ -427,6 +432,21 @@ export default function ScanReport({ report, onRescan, onBack }: ScanReportProps
             <RefreshCw className="w-3.5 h-3.5" />
             Re-scan
           </button>
+          {/* Cross-finding AI action plan — sits next to PDF + Re-scan because
+              it's a "report-level" action, not a per-finding one. Disabled
+              gracefully when no Ollama model is selected. */}
+          <button
+            onClick={() => setPlanAiOpen(true)}
+            disabled={!aiEnabled}
+            title={aiEnabled
+              ? 'Generate a 1-week / 1-month / 1-quarter remediation plan locally'
+              : 'Pick a model in Settings → Local AI to enable'}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)' }}
+          >
+            <Sparkles className="w-3.5 h-3.5" style={{ color: aiEnabled ? '#00D9A3' : undefined }} />
+            Action plan
+          </button>
           <button
             onClick={handleDownloadPdf}
             disabled={downloading}
@@ -494,6 +514,24 @@ export default function ScanReport({ report, onRescan, onBack }: ScanReportProps
           <CategorySection key={category} category={category} checks={checks} client={client} ai={ai} />
         ))}
       </div>
+
+      {/* Cross-finding action plan modal — opened from the toolbar button. */}
+      {planAiOpen && ai.model && (
+        <Suspense fallback={null}>
+          <AiPanel
+            title="Prioritised action plan"
+            subtitle={`${report.domain} · ${totalIssues} finding${totalIssues === 1 ? '' : 's'}`}
+            model={ai.model}
+            baseUrl={ai.baseUrl}
+            prompt={actionPlanPrompt(report, { client })}
+            // Bigger token budget — 1-week/1-month/1-quarter plan with rationale
+            // can run 400–500 words. Give the model headroom.
+            maxTokens={1600}
+            outputKind="prose"
+            onClose={() => setPlanAiOpen(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -11,8 +11,9 @@
  * Claude's framing.
  */
 
-import type { AuditCheck } from '../../data/auditTypes';
+import type { AuditCheck, AuditReport, SeverityLevel } from '../../data/auditTypes';
 import type { GapAnalysisSession, ManagementClause, AnnexAControl, Client } from '../../data/types';
+import type { Deliverable } from '../../data/implementationData';
 
 interface ClientContext {
   client?: Client;
@@ -122,6 +123,161 @@ export function gapNarrativePrompt(
     topGaps || '(none)',
     '',
     'Write the management commentary now.',
+  ].filter(Boolean).join('\n');
+
+  return { system, user };
+}
+
+// ─── Feature 4: Prioritised action plan (Sprint 9) ───────────────────────────
+
+/**
+ * "Prioritised action plan" — takes a complete WP scan report and produces a
+ * 1-week / 1-month / 1-quarter remediation roadmap the consultant can paste
+ * into a client email. Triages all findings in one pass instead of the
+ * per-finding explainer flow.
+ *
+ * Why this is its own prompt rather than a longer explainer: the consultant
+ * needs *ordering* (do X before Y), not just per-finding rationale. Forcing
+ * the model to bucket by timeline produces a more decisive output.
+ */
+export function actionPlanPrompt(
+  report: AuditReport,
+  ctx: ClientContext,
+): { system: string; user: string } {
+  // Group failing/warning findings by severity so the prompt has a clear
+  // signal about what's urgent vs. tidy-up.
+  const SEV: SeverityLevel[] = ['Critical', 'High', 'Medium', 'Low'];
+  const issueChecks = report.checks
+    .filter(c => c.result?.status === 'fail' || c.result?.status === 'warning');
+  const grouped = SEV.map(sev => ({
+    sev,
+    items: issueChecks.filter(c => c.worstCaseSeverity === sev),
+  })).filter(g => g.items.length > 0);
+
+  // Cap each severity bucket at 8 items in the prompt — beyond that the model
+  // gets verbose and the consultant just wants the headlines anyway. The full
+  // detail is in the scan report itself.
+  const summary = grouped
+    .map(g => {
+      const sample = g.items.slice(0, 8)
+        .map(c => `  - ${c.name}${c.result?.detail ? ` — ${c.result.detail.slice(0, 140)}` : ''}`)
+        .join('\n');
+      const more = g.items.length > 8 ? `\n  - …and ${g.items.length - 8} more ${g.sev.toLowerCase()} findings` : '';
+      return `${g.sev} (${g.items.length}):\n${sample}${more}`;
+    })
+    .join('\n\n');
+
+  const passedCount = report.checks.filter(c => c.result?.status === 'pass').length;
+
+  const system = [
+    'You are a security consultant translating a WordPress audit into a remediation plan.',
+    'Audience: an SMB business owner or operations lead — assume non-technical.',
+    'Tone: pragmatic, decisive, no alarmism. You are giving them a path forward.',
+    'Length: 250–400 words.',
+    'Structure (use these exact section headings as plain text on their own lines, no markdown):',
+    '  This week — bullet list of 2–4 most urgent actions (Critical + High severity work). Each item: short imperative + one-line "why".',
+    '  This month — bullet list of 3–5 medium-priority actions. Same format.',
+    '  This quarter — bullet list of 2–4 strategic improvements (Low severity, hardening, monitoring).',
+    '  Standing strong — 1 short paragraph crediting what is already in good shape, based on what passed.',
+    'Decisive ordering matters: if action A is a prerequisite for action B, A goes first.',
+    'No preamble, no salutation, no closing sign-off — start with "This week".',
+  ].join('\n');
+
+  const user = [
+    ctx.client?.name ? `Client: ${ctx.client.name}` : '',
+    ctx.client?.industry ? `Industry: ${ctx.client.industry}` : '',
+    `Domain scanned: ${report.domain}`,
+    `Overall score: ${report.score}/100`,
+    `Findings requiring attention: ${issueChecks.length}`,
+    `Checks passed: ${passedCount}`,
+    '',
+    'Findings by severity:',
+    summary || '(none — all checks passed or were skipped)',
+    '',
+    'Write the prioritised action plan now.',
+  ].filter(Boolean).join('\n');
+
+  return { system, user };
+}
+
+// ─── Feature 5: Implementation deliverable drafter (Sprint 9) ────────────────
+
+/**
+ * "Draft starter content" — given an implementation deliverable (a policy
+ * doc or workshop placeholder) plus the client context, produce a tailored
+ * first-draft body the consultant can edit into final form.
+ *
+ * Two output shapes depending on `deliverable.type`:
+ *   - `document`  → policy/procedure body with sections.
+ *   - `workshop`  → facilitator agenda with timing.
+ *
+ * The prompt deliberately keeps the output short — first-draft, not final.
+ * The consultant's job is to tailor it; ours is to remove the blank-page
+ * problem.
+ */
+export function implementationDraftPrompt(
+  deliverable: Deliverable,
+  projectClientName: string,
+  ctx: ClientContext,
+): { system: string; user: string } {
+  // Combine the project's embedded client name (always set, even for ad-hoc
+  // projects with no Clients-hub link) with whatever extra context we have
+  // from the central record.
+  const clientName = ctx.client?.name?.trim() || projectClientName;
+  const industry = ctx.client?.industry?.trim();
+  const notes = ctx.client?.notes?.trim();
+
+  if (deliverable.type === 'workshop') {
+    const system = [
+      'You are an ISO 27001 implementation lead drafting a workshop agenda.',
+      'Audience: the facilitator (the consultant). The output goes into their notes app, not to the client.',
+      'Length: 180–280 words.',
+      'Structure (plain text section headings, no markdown):',
+      '  Workshop purpose — 1–2 sentence statement of the session\'s objective.',
+      '  Duration — recommended length (e.g. "60–90 minutes").',
+      '  Attendees — who needs to be in the room.',
+      '  Agenda — numbered list of 4–8 segments, each with an estimated duration in parentheses.',
+      '  Outputs — bullet list of artefacts the workshop should produce.',
+      'No preamble, no closing.',
+    ].join('\n');
+
+    const user = [
+      `Workshop: ${deliverable.name}`,
+      deliverable.section ? `Programme section: ${deliverable.section}` : '',
+      `Client: ${clientName}`,
+      industry ? `Industry: ${industry}` : '',
+      notes ? `Client context notes: ${notes}` : '',
+      '',
+      'Draft the workshop agenda now.',
+    ].filter(Boolean).join('\n');
+
+    return { system, user };
+  }
+
+  // type === 'document'
+  const system = [
+    'You are an ISO 27001 implementation lead drafting a starter policy/procedure document.',
+    'Audience: the consultant, who will tailor this draft into the client\'s final document.',
+    'Tone: formal, ISO-aligned, but human — written for an SMB, not an enterprise.',
+    'Length: 350–550 words. First draft only — focus on structure and key clauses; the consultant will fill in client-specific details.',
+    'Structure (plain text section headings, no markdown):',
+    '  Purpose — 1 paragraph stating what this document covers and why.',
+    '  Scope — 1 paragraph stating who/what this applies to.',
+    '  Policy / Procedure — the substantive content as numbered or bulleted clauses, depending on what suits the document.',
+    '  Roles & responsibilities — short bullet list.',
+    '  Review cycle — 1 sentence noting how often this is reviewed (default: annually).',
+    'Use square-bracket placeholders like [Client Name] or [Date of last review] only where genuinely client-specific.',
+    'No preamble, no closing — start with "Purpose".',
+  ].join('\n');
+
+  const user = [
+    `Document: ${deliverable.name}`,
+    deliverable.section ? `Programme section: ${deliverable.section}` : '',
+    `Client: ${clientName}`,
+    industry ? `Industry: ${industry}` : '',
+    notes ? `Client context notes: ${notes}` : '',
+    '',
+    'Draft the starter document now.',
   ].filter(Boolean).join('\n');
 
   return { system, user };

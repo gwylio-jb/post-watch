@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
-import { ArrowLeft, Pencil } from 'lucide-react';
+import { useState, useMemo, lazy, Suspense } from 'react';
+import { ArrowLeft, Pencil, Sparkles } from 'lucide-react';
 import {
   docStatusStyles, workshopStatusStyles, milestoneStatusStyles,
   type DocStatus, type WorkshopStatus, type MilestoneStatus,
+  type Deliverable,
 } from '../../data/implementationData';
 import {
   type Project,
@@ -11,6 +12,14 @@ import {
   getProjectSections,
   computeMetrics,
 } from '../../data/projects';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
+import type { Client } from '../../data/types';
+import type { AiSettings } from '../../data/auditTypes';
+import { implementationDraftPrompt } from '../../utils/ai/prompts';
+
+// AiPanel is lazy-loaded — same pattern as ScanReport — so the modal +
+// fetch glue only enters the bundle when the user actually opens a draft.
+const AiPanel = lazy(() => import('../common/AiPanel'));
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -128,6 +137,19 @@ export default function ProjectDetail({ project, onUpdate, onBack, onEditCustom 
   const milestones = useMemo(() => getProjectMilestones(project), [project]);
   const sections = useMemo(() => getProjectSections(project), [project]);
   const metrics = useMemo(() => computeMetrics(project), [project]);
+
+  // ── AI: per-deliverable starter-content drafter (Sprint 9) ────────────────
+  // The opened deliverable id (or null) lives at this level so closing the
+  // modal returns focus to the table. We resolve the central Client record
+  // (if any) for richer prompt context — projects link via clientId when
+  // created from the Clients hub picker.
+  const [ai] = useLocalStorage<AiSettings>('ai-settings', {});
+  const [clients] = useLocalStorage<Client[]>('clients', []);
+  const [draftFor, setDraftFor] = useState<Deliverable | null>(null);
+  const aiEnabled = !!ai.model?.trim();
+  const linkedClient = project.client.clientId
+    ? (Array.isArray(clients) ? clients : []).find(c => c.id === project.client.clientId)
+    : undefined;
 
   // Helpers
   const getDocStatus = (id: string): DocStatus => project.docStatuses[id] ?? 'Not Started';
@@ -318,7 +340,27 @@ export default function ProjectDetail({ project, onUpdate, onBack, onEditCustom 
                           <tr key={d.id} className="border-b border-border/30 last:border-b-0 hover:bg-surface-alt/40 transition-colors">
                             <td className="px-4 py-2.5 font-mono text-text-muted text-[10px] align-top">{d.ref}</td>
                             <td className={`px-4 py-2.5 text-text-primary align-top ${d.bold ? 'font-semibold' : ''} ${d.indent ? 'pl-8' : ''}`}>
-                              {d.name}
+                              <span className="inline-flex items-center gap-2">
+                                {d.name}
+                                {/* AI starter-content button — per-row, only on
+                                    leaf deliverables (skip section headers
+                                    where d.bold is true; those aren't actual
+                                    deliverables, just visual grouping). */}
+                                {!d.bold && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDraftFor(d)}
+                                    disabled={!aiEnabled}
+                                    title={aiEnabled
+                                      ? `Draft starter content for "${d.name}"`
+                                      : 'Pick a model in Settings → Local AI to enable'}
+                                    className="p-1 rounded text-text-muted hover:text-accent hover:bg-accent/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                    aria-label={`Draft starter content for ${d.name}`}
+                                  >
+                                    <Sparkles className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </span>
                             </td>
                             <td className="px-3 py-2 align-top">
                               {isWorkshopSection || d.type === 'workshop' ? (
@@ -355,6 +397,30 @@ export default function ProjectDetail({ project, onUpdate, onBack, onEditCustom 
             })
           )}
         </div>
+      )}
+
+      {/* AI starter-content drafter — opens for whichever deliverable has
+          its Sparkles button clicked. Both document and workshop types
+          route through the same prompt builder; the prompt itself branches. */}
+      {draftFor && ai.model && (
+        <Suspense fallback={null}>
+          <AiPanel
+            title={draftFor.type === 'workshop' ? 'Draft workshop agenda' : 'Draft starter content'}
+            subtitle={draftFor.name}
+            model={ai.model}
+            baseUrl={ai.baseUrl}
+            prompt={implementationDraftPrompt(
+              draftFor,
+              project.client.name,
+              { client: linkedClient },
+            )}
+            // Documents can run 350–550 words; agendas 180–280. Give plenty
+            // of headroom on both sides.
+            maxTokens={draftFor.type === 'workshop' ? 1200 : 2000}
+            outputKind="prose"
+            onClose={() => setDraftFor(null)}
+          />
+        </Suspense>
       )}
     </div>
   );
