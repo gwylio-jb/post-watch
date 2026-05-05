@@ -88,9 +88,14 @@
   --shadow-glass: 0 4px 24px rgba(26, 35, 50, 0.08);
 
   /* Typography — Post_Watch spec */
-  --font-body: "ingra", "Plus Jakarta Sans", "Nunito Sans", system-ui, sans-serif;
-  --font-display: "azo-sans", "Archivo Black", "Montserrat", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", "Fira Code", "IBM Plex Mono", monospace;
+  /* Reordered Sprint 9: Adobe Typekit fonts ("ingra"/"azo-sans") were silently
+     failing to load (placeholder kit ID), so the stack was already using the
+     Google-Fonts-loaded names below. Putting them first removes the wasted
+     Typekit request and gives a deterministic render. system-ui is the safety
+     net; -apple-system is the macOS-native sans for any final fallback. */
+  --font-body: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", sans-serif;
+  --font-display: "Archivo Black", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "IBM Plex Mono", ui-monospace, monospace;
 }
 
 /* ── Dark theme overrides ─────────────────────────────────────────────────── */
@@ -150,6 +155,16 @@ body {
   color: var(--color-text-primary);
   margin: 0;
   transition: background-color 0.2s, color 0.2s;
+
+  /* Tauri's WKWebView defaults to subpixel anti-aliasing, which looks heavy
+     and slightly blurred on dark backgrounds at the sizes we use — especially
+     for the display weight (900). Switch to greyscale antialiasing for the
+     crisper rendering you'd see in Sketch / Figma. The webkit rule covers
+     macOS / iOS WebKit; the moz rule is harmless on Tauri but keeps browser
+     dev mode (Firefox / Chromium) consistent. */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 #root {

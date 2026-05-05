@@ -144,12 +144,12 @@ export default function UpdatePrompt() {
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
-            {state.notes && (
-              <p className="text-[11px] leading-relaxed mb-3 line-clamp-3"
-                style={{ color: 'var(--color-text-secondary)' }}>
-                {state.notes}
-              </p>
-            )}
+            {/* Release-notes paragraph removed in Sprint 9 — dragged the
+                toast taller and added little value once the auto-update flow
+                was proven; the headline + version is enough. The `notes`
+                field on State is left in place so a future "What's new?"
+                detail view can render it without requiring a state shape
+                migration. */}
             <div className="flex items-center gap-2">
               <button
                 type="button"
