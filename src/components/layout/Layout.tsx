@@ -55,6 +55,8 @@ export default function Layout({
           onOpenSearch={onOpenSearch}
           theme={theme}
           onToggleTheme={onToggleTheme}
+          onSectionChange={onSectionChange}
+          alertCount={alertCount}
         />
         {children}
       </div>

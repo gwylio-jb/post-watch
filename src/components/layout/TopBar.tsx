@@ -19,6 +19,8 @@ interface TopBarProps {
   onOpenSearch: () => void;
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
+  onSectionChange: (section: AppSection) => void;
+  alertCount?: number;
 }
 
 const crumbForSection: Record<AppSection, string> = {
@@ -34,14 +36,14 @@ const crumbForSection: Record<AppSection, string> = {
   search:       'search',
 };
 
-export default function TopBar({ activeSection, onOpenSearch, theme, onToggleTheme }: TopBarProps) {
+export default function TopBar({ activeSection, onOpenSearch, theme, onToggleTheme, onSectionChange, alertCount = 0 }: TopBarProps) {
   const crumb = crumbForSection[activeSection];
 
   return (
-    <div className="topbar no-print">
-      <div className="crumbs">
+    <nav className="topbar no-print" aria-label="Section breadcrumb and global actions">
+      <div className="crumbs" aria-live="polite">
         <span>post_watch</span>
-        <span>/</span>
+        <span aria-hidden>/</span>
         <strong>{crumb}</strong>
       </div>
 
@@ -60,10 +62,32 @@ export default function TopBar({ activeSection, onOpenSearch, theme, onToggleThe
         <button
           type="button"
           className="icon-btn"
-          onClick={() => {/* notifications surface lives in post_alert; placeholder for now */}}
-          aria-label="Notifications"
+          onClick={() => onSectionChange('post_alert')}
+          aria-label={alertCount > 0 ? `Notifications, ${alertCount} active alert${alertCount === 1 ? '' : 's'}` : 'Notifications'}
+          style={{ position: 'relative' }}
         >
           <Bell />
+          {alertCount > 0 && (
+            <span
+              aria-hidden
+              style={{
+                position: 'absolute',
+                top: 4, right: 4,
+                minWidth: 14, height: 14,
+                padding: '0 4px',
+                borderRadius: 999,
+                background: 'var(--ember)',
+                color: '#fff',
+                fontSize: 9,
+                fontWeight: 700,
+                fontFamily: 'var(--font-redesign-mono)',
+                display: 'grid', placeItems: 'center',
+                boxShadow: '0 0 0 2px var(--bg-1)',
+              }}
+            >
+              {alertCount > 9 ? '9+' : alertCount}
+            </span>
+          )}
         </button>
         <button
           type="button"
@@ -77,6 +101,6 @@ export default function TopBar({ activeSection, onOpenSearch, theme, onToggleThe
         <SettingsMenu />
         <div className="avatar" aria-hidden>JB</div>
       </div>
-    </div>
+    </nav>
   );
 }

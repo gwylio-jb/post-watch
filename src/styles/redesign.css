@@ -317,6 +317,11 @@
 }
 
 .app-shell .topbar {
+  /* Stacking context above .page so SettingsMenu / theme dropdowns render
+     over metric cards and bubbles which create their own stacking contexts
+     via z-index/isolation. Sprint 10 QA fix. */
+  position: relative;
+  z-index: 30;
   display: flex; align-items: center; gap: 16px;
   padding: 18px 28px;
   border-bottom: 1px solid var(--line);
@@ -846,7 +851,61 @@
 .app-shell button:focus-visible,
 .app-shell .nav-item:focus-visible,
 .app-shell .scan-row:focus-visible,
+.app-shell .qa:focus-visible,
 .app-shell .search-pill:focus-visible {
   outline: 2px solid var(--mint);
   outline-offset: 2px;
+}
+
+/* ============================================================
+   Legacy-token bridge (Sprint 10 QA)
+   ------------------------------------------------------------
+   Modules not yet ported to the redesign tokens (post_audit,
+   post_comply, post_intel, post_alert, post_report, post_clients,
+   shared SettingsMenu/SettingsPanel) reference the older
+   --color-text-* / --color-surface / --color-border vars. Those
+   were tuned for the previous flatter dark surface (#1A2332). On
+   the new gradient (#0B1220 base + auroras) the muted tokens
+   read too dim and surfaces look out of place.
+
+   Re-pointing the legacy tokens at the redesign palette here
+   means every un-ported page picks up readable contrast and a
+   matching surface tone automatically — without touching
+   individual components.
+
+   Loaded after index.css (see main.tsx), so these win on equal
+   specificity against the .dark / :root @theme blocks.
+   ============================================================ */
+.theme-dark {
+  --color-base:           var(--bg-1);
+  --color-surface:        var(--bg-2);
+  --color-surface-alt:    var(--bg-3);
+  --color-border:         var(--line-2);
+  --color-border-strong:  rgba(255,255,255,0.18);
+
+  --color-text-primary:   var(--ink-1);
+  --color-text-secondary: var(--ink-2);
+  /* Bumped from #6B7F97 — the old muted value is too dim against
+     the new #0B1220 gradient base. WCAG AA on glass surfaces. */
+  --color-text-muted:     #95A2B5;
+
+  --color-text-accent:    #00D9A3;
+  --color-text-violet:    #A78BFA;
+  --color-text-ember:     #FF8C5A;
+}
+
+.theme-light {
+  --color-base:           var(--bg-1);
+  --color-surface:        var(--bg-2);
+  --color-surface-alt:    var(--bg-3);
+  --color-border:         var(--line-2);
+  --color-border-strong:  rgba(26,35,50,0.22);
+
+  --color-text-primary:   var(--ink-1);
+  --color-text-secondary: var(--ink-2);
+  --color-text-muted:     #6B7280;
+
+  --color-text-accent:    #007A5E;
+  --color-text-violet:    #6D28D9;
+  --color-text-ember:     #B8320E;
 }

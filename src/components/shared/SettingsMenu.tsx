@@ -13,7 +13,7 @@ export default function SettingsMenu() {
   const menuRef = useRef<HTMLDivElement>(null);
   const summary = summariseStorage();
 
-  // Close on outside click
+  // Close on outside click + Escape
   useEffect(() => {
     if (!open) return;
     const onClick = (e: MouseEvent) => {
@@ -21,8 +21,15 @@ export default function SettingsMenu() {
         setOpen(false);
       }
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
     document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [open]);
 
   // Auto-dismiss toasts
@@ -75,21 +82,26 @@ export default function SettingsMenu() {
   return (
     <div ref={menuRef} className="relative">
       <button
+        type="button"
         onClick={() => setOpen(o => !o)}
-        className="p-2.5 rounded-xl text-text-secondary hover:text-text-primary transition-all hover:shadow-card"
-        style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)' }}
+        className="icon-btn"
         aria-label="Settings"
         aria-expanded={open}
+        aria-haspopup="menu"
       >
         <Settings className="w-4 h-4" />
       </button>
 
       {open && (
         <div
-          className="absolute right-0 top-full mt-2 w-64 rounded-xl shadow-card-hover overflow-hidden z-20"
+          role="menu"
+          className="absolute right-0 top-full mt-2 w-64 rounded-xl shadow-card-hover overflow-hidden"
           style={{
             background: 'var(--color-surface)',
             border: '1px solid var(--color-border)',
+            // Above .topbar's z:30 stacking context — the topbar lifts to render
+            // over .page metric tiles, this dropdown rides above the topbar.
+            zIndex: 60,
           }}
         >
           <div className="px-4 py-3 border-b border-border">

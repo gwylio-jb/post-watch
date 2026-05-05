@@ -265,8 +265,14 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                 const ts = new Date(r.completedAt ?? r.startedAt);
 
                 return (
-                  <div className="scan-row" key={r.id}>
-                    <div className={`scan-score ${tone}`}>{r.score}</div>
+                  <button
+                    type="button"
+                    className="scan-row"
+                    key={r.id}
+                    onClick={() => onNavigate('post_scan')}
+                    aria-label={`View scan for ${r.domain}, score ${r.score} out of 100`}
+                  >
+                    <div className={`scan-score ${tone}`} aria-hidden>{r.score}</div>
                     <div>
                       <div className="scan-domain">{r.domain}</div>
                       <div className="scan-meta">{checkCount} checks · WP scan</div>
@@ -277,7 +283,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       {critCount === 0 && highCount === 0 && <span className="pill mint"><span className="dot" style={{ background: 'var(--mint)' }} />clean</span>}
                     </div>
                     <div className="scan-time">{formatTimeAgo(ts)}</div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -303,22 +309,22 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             </div>
           </div>
           <div className="qa-list">
-            <div className="qa primary" onClick={() => onNavigate('post_scan')}>
+            <button type="button" className="qa primary" onClick={() => onNavigate('post_scan')}>
               <ScanSearch className="w-4 h-4" /> Run new scan
-            </div>
-            <div className="qa" onClick={() => onNavigate('post_comply')}>
+            </button>
+            <button type="button" className="qa" onClick={() => onNavigate('post_comply')}>
               <BarChart3 className="w-4 h-4" /> New gap analysis
-            </div>
-            <div className="qa" onClick={() => onNavigate('post_risk')}>
+            </button>
+            <button type="button" className="qa" onClick={() => onNavigate('post_risk')}>
               <AlertTriangle className="w-4 h-4" /> Add risk
-            </div>
-            <div className="qa" onClick={() => onNavigate('post_report')}>
+            </button>
+            <button type="button" className="qa" onClick={() => onNavigate('post_report')}>
               <FileText className="w-4 h-4" /> Generate report
-            </div>
+            </button>
             <hr className="divider" style={{ margin: '6px 4px' }} />
-            <div className="qa" onClick={() => setRoadmapOpen(true)}>
+            <button type="button" className="qa" onClick={() => setRoadmapOpen(true)}>
               <Zap className="w-4 h-4" /> V2.1 AI roadmap
-            </div>
+            </button>
           </div>
         </div>
       </section>
