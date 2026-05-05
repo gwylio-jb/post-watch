@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit2, Trash2, X, Users, Target, ChevronDown } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Users, Target, ChevronDown, FileText } from 'lucide-react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { managementClauses } from '../../data/clauses';
 import { allControls } from '../../data/controls';
@@ -920,11 +920,53 @@ export default function RiskRegister() {
   }), [scopedRisks]);
 
   return (
-    <div className="flex flex-col h-full overflow-auto">
-      <div className="p-8 space-y-6">
+    <div className="page">
 
-        {/* Brand kicker — matches the PDF cover and other modules */}
-        <span className="mono-tag">risk hub</span>
+      {/* Hero — matches Sprint-10 redesign handoff */}
+      <section className="hero" style={{ padding: '24px 28px', gridTemplateColumns: '1fr auto' }}>
+        <div className="hero-l">
+          <span className="kicker violet">post_risk · live register</span>
+          <h1 className="h-condensed" style={{ fontSize: 48, marginTop: 6 }}>Risk hub</h1>
+          <p className="sub">
+            ISO 27001-aligned risk register · likelihood × impact (1–5) · stored locally.
+            {scope === 'all'
+              ? ` ${stats.total} total risk${stats.total === 1 ? '' : 's'} across ${pickerClients.length} client${pickerClients.length === 1 ? '' : 's'}.`
+              : currentClient ? ` Scoped to ${currentClient.name}.` : ''}
+          </p>
+          <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+            <button className="btn btn-violet" onClick={() => setShowForm(true)}>
+              <Plus className="w-4 h-4" /> New risk
+            </button>
+            <button className="btn btn-ghost" disabled title="Export coming in next release" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+              <FileText className="w-4 h-4" /> Export register
+            </button>
+          </div>
+        </div>
+        {/* 5×5 heatmap — visualises live likelihood × impact placement */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'auto repeat(5, 38px)', gap: 4, alignItems: 'center', padding: 14, borderRadius: 18, background: 'var(--glass-bg)', border: '1px solid var(--glass-bd)', backdropFilter: 'blur(20px)' }}>
+          <span />
+          {[1, 2, 3, 4, 5].map(n => (
+            <span key={n} className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', textAlign: 'center', fontFamily: 'var(--font-redesign-mono)' }}>L{n}</span>
+          ))}
+          {[5, 4, 3, 2, 1].map(impact => (
+            <React.Fragment key={impact}>
+              <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>I{impact}</span>
+              {[1, 2, 3, 4, 5].map(l => {
+                const v = l * impact;
+                const bg = v > 15 ? 'rgba(255,74,28,0.7)' : v >= 8 ? 'rgba(139,92,246,0.6)' : v >= 4 ? 'rgba(0,217,163,0.55)' : 'rgba(0,217,163,0.25)';
+                const has = scopedRisks.some(r => r.likelihood === l && r.impact === impact && r.status !== 'Closed');
+                return (
+                  <div key={l} style={{ width: 38, height: 32, borderRadius: 8, background: bg, display: 'grid', placeItems: 'center', position: 'relative' }}>
+                    {has && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff', boxShadow: '0 0 0 2px rgba(0,0,0,0.25)' }} />}
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          ))}
+        </div>
+      </section>
+
+      <div className="p-8 space-y-6" style={{ paddingTop: 0 }}>
 
         {/* Scope selector + Add */}
         <div className="flex items-center gap-3 flex-wrap">

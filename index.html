@@ -16,9 +16,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
     <script>
-      // Prevent flash: apply theme class before render. Light is the default.
+      // Prevent flash: apply theme class before render.
+      // - `.dark`           — Tailwind `dark:` modifiers (untouched modules)
+      // - `.theme-light` / `.theme-dark` — redesign tokens in src/styles/redesign.css
+      // Default is dark (Sprint 1 V2.1 default — see App.tsx useLocalStorage).
       const t = localStorage.getItem('clause-control:theme');
-      if (t === '"dark"') document.documentElement.classList.add('dark');
+      const isDark = t !== '"light"'; // anything other than explicit light = dark
+      const cl = document.documentElement.classList;
+      if (isDark) { cl.add('dark'); cl.add('theme-dark'); }
+      else        { cl.add('theme-light'); }
     </script>
   </head>
   <body class="antialiased">

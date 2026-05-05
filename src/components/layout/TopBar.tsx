@@ -1,6 +1,18 @@
-import { Search, Sun, Moon } from 'lucide-react';
+import { Search, Sun, Moon, Bell } from 'lucide-react';
 import type { AppSection } from '../../data/types';
 import SettingsMenu from '../shared/SettingsMenu';
+
+/*
+ * TopBar (Sprint-10 redesign)
+ *
+ * Slim crumb-trail + glass search-pill + icon actions + avatar.
+ * Visuals owned by `.topbar`, `.crumbs`, `.search-pill`, `.icon-btn`,
+ * `.avatar` in `src/styles/redesign.css`.
+ *
+ * The crumb shows `post_watch / <section>` per the handoff. The settings
+ * menu (`SettingsMenu`) keeps its existing dropdown — it's launched from
+ * the cog icon and lives on top of everything via React portal.
+ */
 
 interface TopBarProps {
   activeSection: AppSection;
@@ -9,103 +21,62 @@ interface TopBarProps {
   onToggleTheme: () => void;
 }
 
-const sectionTitles: Record<AppSection, { title: string; subtitle: string; tag: string }> = {
-  post_status:  { title: 'Dashboard',           subtitle: 'Audit. Protect. Report.',                                          tag: 'post_status'  },
-  post_clients: { title: 'Clients',             subtitle: 'Billable engagements — one record per client',                    tag: 'post_clients' },
-  post_audit:   { title: '27001 helper',         subtitle: 'Clauses 4–10 and Annex A controls',                               tag: 'post_audit'   },
-  post_comply:  { title: 'Compliance',          subtitle: 'Gap analysis, implementation and checklists',                     tag: 'post_comply'  },
-  post_risk:    { title: 'Risk hub',             subtitle: 'Identify, score and treat information security risks',             tag: 'post_risk'    },
-  post_intel:   { title: 'Threat intelligence', subtitle: 'WordPress vulnerabilities and CVE feed',                          tag: 'post_intel'   },
-  post_scan:    { title: 'WordPress security',  subtitle: 'External attack-surface analysis',                                tag: 'post_scan'    },
-  post_alert:   { title: 'Alerts',              subtitle: 'Active issues across all modules',                                tag: 'post_alert'   },
-  post_report:  { title: 'Reports',             subtitle: 'Generate and export client-ready reports',                        tag: 'post_report'  },
-  search:       { title: 'Search',              subtitle: 'Find clauses, controls, audit questions and evidence',            tag: 'search'       },
+const crumbForSection: Record<AppSection, string> = {
+  post_status:  'post_status',
+  post_clients: 'post_clients',
+  post_audit:   'post_audit',
+  post_comply:  'post_comply',
+  post_risk:    'post_risk',
+  post_intel:   'post_intel',
+  post_scan:    'post_scan',
+  post_alert:   'post_alert',
+  post_report:  'post_report',
+  search:       'search',
 };
 
 export default function TopBar({ activeSection, onOpenSearch, theme, onToggleTheme }: TopBarProps) {
-  const meta = sectionTitles[activeSection];
+  const crumb = crumbForSection[activeSection];
+
   return (
-    <header
-      className="no-print flex items-center justify-between px-8 py-4 sticky top-0 z-10 backdrop-blur-md"
-      style={{
-        background: 'color-mix(in srgb, var(--color-surface) 85%, transparent)',
-        borderBottom: '1px solid var(--color-border)',
-      }}
-    >
-      <div className="flex items-baseline gap-3">
-        <h1 className="font-display font-bold text-2xl text-text-primary leading-tight">
-          {meta.title}
-        </h1>
-        <div className="flex items-center gap-2">
-          <span
-            style={{
-              fontFamily: '"JetBrains Mono", monospace',
-              fontSize: '10px',
-              fontWeight: 700,
-              color: '#0A1628',
-              background: 'var(--color-mint)',
-              borderRadius: '4px',
-              padding: '2px 8px',
-              letterSpacing: '0.02em',
-            }}
-          >
-            {meta.tag}
-          </span>
-          <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{meta.subtitle}</p>
-        </div>
+    <div className="topbar no-print">
+      <div className="crumbs">
+        <span>post_watch</span>
+        <span>/</span>
+        <strong>{crumb}</strong>
       </div>
 
-      <div className="flex items-center gap-2">
-        <button
-          onClick={onOpenSearch}
-          className="flex items-center gap-2 pl-3 pr-2 py-2 rounded-xl text-xs transition-all"
-          style={{
-            background: 'var(--color-surface-alt)',
-            border: '1px solid var(--color-border)',
-            color: 'var(--color-text-secondary)',
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-card)';
-            (e.currentTarget as HTMLElement).style.color = 'var(--color-text-primary)';
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.boxShadow = '';
-            (e.currentTarget as HTMLElement).style.color = 'var(--color-text-secondary)';
-          }}
-        >
-          <Search className="w-3.5 h-3.5" />
-          <span>Search…</span>
-          <kbd
-            className="text-[10px] px-1.5 py-0.5 rounded font-mono ml-3"
-            style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
-          >
-            /
-          </kbd>
-        </button>
+      <button
+        type="button"
+        className="search-pill"
+        onClick={onOpenSearch}
+        aria-label="Open global search"
+      >
+        <Search />
+        <span>Search clauses, controls, scans…</span>
+        <span className="kbd">/</span>
+      </button>
 
+      <div className="topbar-actions">
         <button
+          type="button"
+          className="icon-btn"
+          onClick={() => {/* notifications surface lives in post_alert; placeholder for now */}}
+          aria-label="Notifications"
+        >
+          <Bell />
+        </button>
+        <button
+          type="button"
+          className="icon-btn"
           onClick={onToggleTheme}
-          className="p-2.5 rounded-xl transition-all"
-          style={{
-            background: 'var(--color-surface-alt)',
-            border: '1px solid var(--color-border)',
-            color: 'var(--color-text-secondary)',
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-card)';
-            (e.currentTarget as HTMLElement).style.color = 'var(--color-text-primary)';
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.boxShadow = '';
-            (e.currentTarget as HTMLElement).style.color = 'var(--color-text-secondary)';
-          }}
           aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
         >
-          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          {theme === 'dark' ? <Sun /> : <Moon />}
         </button>
-
         <SettingsMenu />
+        <div className="avatar" aria-hidden>JB</div>
       </div>
-    </header>
+    </div>
   );
 }

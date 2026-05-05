@@ -59,10 +59,19 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // Two parallel classes: `.dark` keeps Tailwind `dark:` modifiers in
+    // untouched modules working; `.theme-dark` / `.theme-light` is what the
+    // redesign CSS (src/styles/redesign.css) reads from. They always agree
+    // on which theme is active.
+    const cl = document.documentElement.classList;
     if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
+      cl.add('dark');
+      cl.add('theme-dark');
+      cl.remove('theme-light');
     } else {
-      document.documentElement.classList.remove('dark');
+      cl.remove('dark');
+      cl.add('theme-light');
+      cl.remove('theme-dark');
     }
   }, [theme]);
 

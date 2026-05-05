@@ -1,6 +1,6 @@
 import { useState, lazy, Suspense } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronDown, ChevronRight, Download, RefreshCw, ArrowLeft, Loader2, Sparkles, Wrench } from 'lucide-react';
+import { ChevronDown, ChevronRight, RefreshCw, ArrowLeft, Loader2, Sparkles, Wrench, FileText } from 'lucide-react';
 import type { AuditCheck, AuditReport, CheckStatus, SeverityLevel, AiSettings } from '../../data/auditTypes';
 import { CATEGORY_ORDER } from '../../utils/audit/scanEngine';
 import { getExplainer } from '../../data/checkExplainers';
@@ -8,6 +8,7 @@ import { useLocalStorage } from '../../hooks/useLocalStorage';
 import type { Client } from '../../data/types';
 import { UNASSIGNED_CLIENT_ID } from '../../utils/clientMigration';
 import { explainFindingPrompt, remediationSnippetPrompt, actionPlanPrompt } from '../../utils/ai/prompts';
+import Gauge from '../charts/Gauge';
 
 // AiPanel is heavyweight (modal + fetch glue); lazy-loaded so it only enters
 // the chunk graph when the user actually opens it.
@@ -17,67 +18,6 @@ interface ScanReportProps {
   report: AuditReport;
   onRescan: () => void;
   onBack: () => void;
-}
-
-// ─── Score dial ───────────────────────────────────────────────────────────────
-
-function ScoreDial({ score }: { score: number }) {
-  const r = 40;
-  const cx = 50;
-  const cy = 52;
-  const circumference = 2 * Math.PI * r;   // ≈ 251.33
-  const arcLength = circumference * 0.75;   // 270°
-  const fillLength = (score / 100) * arcLength;
-
-  const color =
-    score >= 90 ? 'var(--color-status-green)'
-    : score >= 70 ? 'var(--color-status-blue)'
-    : score >= 40 ? 'var(--color-status-amber)'
-    : 'var(--color-status-red)';
-
-  const label =
-    score >= 90 ? 'Excellent'
-    : score >= 70 ? 'Good'
-    : score >= 40 ? 'Needs Work'
-    : 'Critical Issues';
-
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <svg viewBox="0 0 100 100" width={160} height={160} aria-label={`Security score: ${score}/100`}>
-        {/* Background arc */}
-        <circle
-          cx={cx} cy={cy} r={r}
-          fill="none"
-          stroke="var(--color-border)"
-          strokeWidth={8}
-          strokeDasharray={`${arcLength} ${circumference - arcLength}`}
-          strokeLinecap="round"
-          transform={`rotate(135, ${cx}, ${cy})`}
-        />
-        {/* Score fill arc */}
-        <motion.circle
-          cx={cx} cy={cy} r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth={8}
-          strokeLinecap="round"
-          initial={{ strokeDasharray: `0 ${circumference}` }}
-          animate={{ strokeDasharray: `${fillLength} ${circumference - fillLength}` }}
-          transition={{ duration: 1.2, ease: 'easeOut', delay: 0.2 }}
-          transform={`rotate(135, ${cx}, ${cy})`}
-          style={{ filter: `drop-shadow(0 0 6px color-mix(in srgb, ${color} 60%, transparent))` }}
-        />
-        {/* Score number */}
-        <text x={cx} y={cy - 3} textAnchor="middle" fill="var(--color-text-primary)" fontSize={26} fontWeight={700} fontFamily="var(--font-display)">
-          {score}
-        </text>
-        <text x={cx} y={cy + 13} textAnchor="middle" fill="var(--color-text-muted)" fontSize={9}>
-          out of 100
-        </text>
-      </svg>
-      <span className="text-sm font-semibold" style={{ color }}>{label}</span>
-    </div>
-  );
 }
 
 // ─── Severity helpers ─────────────────────────────────────────────────────────
@@ -113,21 +53,6 @@ const statusColor: Record<CheckStatus, string> = {
   skipped: 'var(--color-text-muted)',
   error:   'var(--color-accent-danger)',
 };
-
-// ─── Summary counts ───────────────────────────────────────────────────────────
-
-function SummaryCard({ level, count }: { level: SeverityLevel; count: number }) {
-  const color = sevColor[level];
-  return (
-    <div
-      className="flex flex-col items-center justify-center p-4 rounded-xl flex-1"
-      style={{ background: `color-mix(in srgb, ${color} 10%, var(--color-surface-alt))`, border: `1px solid color-mix(in srgb, ${color} 25%, var(--color-border))` }}
-    >
-      <span className="text-2xl font-bold font-display" style={{ color }}>{count}</span>
-      <span className="text-xs text-text-muted mt-0.5">{level}</span>
-    </div>
-  );
-}
 
 // ─── Finding row ──────────────────────────────────────────────────────────────
 
@@ -412,101 +337,108 @@ export default function ScanReport({ report, onRescan, onBack }: ScanReportProps
     checks: report.checks.filter(c => c.category === cat),
   })).filter(g => g.checks.length > 0);
 
+  const passCount = report.checks.filter(c => c.result?.status === 'pass').length;
+  const tone = report.score >= 50 ? 'good' : 'bad';
+
   return (
-    <div className="max-w-4xl mx-auto py-8 px-6 space-y-6">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between">
+    <div className="page">
+      {/* Back nav */}
+      <div style={{ marginBottom: -8 }}>
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
+          className="btn btn-ghost"
+          style={{ padding: '6px 12px', fontSize: 12 }}
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-3.5 h-3.5" />
           New scan
         </button>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onRescan}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary transition-all"
-            style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)' }}
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Re-scan
-          </button>
-          {/* Cross-finding AI action plan — sits next to PDF + Re-scan because
-              it's a "report-level" action, not a per-finding one. Disabled
-              gracefully when no Ollama model is selected. */}
-          <button
-            onClick={() => setPlanAiOpen(true)}
-            disabled={!aiEnabled}
-            title={aiEnabled
-              ? 'Generate a 1-week / 1-month / 1-quarter remediation plan locally'
-              : 'Pick a model in Settings → Local AI to enable'}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)' }}
-          >
-            <Sparkles className="w-3.5 h-3.5" style={{ color: aiEnabled ? '#00D9A3' : undefined }} />
-            Action plan
-          </button>
-          <button
-            onClick={handleDownloadPdf}
-            disabled={downloading}
-            title={downloadError ?? 'Generate a branded PDF of this scan report'}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-white transition-all disabled:opacity-60 disabled:cursor-wait"
-            style={{ background: 'var(--gradient-accent)' }}
-          >
-            {downloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-            {downloading ? 'Generating…' : 'Download PDF'}
-          </button>
-        </div>
       </div>
 
-      {/* Score card */}
-      <div className="card-elevated p-6">
-        <div className="flex flex-col sm:flex-row items-center gap-8">
-          <ScoreDial score={report.score} />
-
-          <div className="flex-1 space-y-4 w-full">
-            <div className="flex items-start gap-3">
-              {report.clientLogo && (
-                <img
-                  src={report.clientLogo}
-                  alt="Client logo"
-                  className="w-12 h-12 rounded-lg object-contain flex-shrink-0"
-                  style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)' }}
-                />
-              )}
-              <div className="flex-1 min-w-0">
-                <h2 className="font-display font-bold text-2xl text-text-primary truncate">{report.domain}</h2>
-                <p className="text-xs text-text-muted mt-0.5">
-                  Scanned {completedAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  {', '}
-                  {completedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}
-                  {duration > 0 && ` · ${duration}s`}
-                  {' · '}
-                  {report.checks.filter(c => !c.requiresTauri).length} public checks
-                  {report.checks.some(c => c.requiresTauri) && ` + ${report.checks.filter(c => c.requiresTauri).length} native`}
-                </p>
-                <p className="text-[10px] font-mono mt-1" style={{ color: 'var(--color-text-accent)' }}>
-                  powered by gwylio
-                </p>
-              </div>
-            </div>
-
-            {/* Severity summary */}
-            <div className="flex gap-2">
-              {(['Critical', 'High', 'Medium', 'Low'] as SeverityLevel[]).map(sev => (
-                <SummaryCard key={sev} level={sev} count={counts[sev] ?? 0} />
-              ))}
-            </div>
-
-            {totalIssues === 0 && (
-              <p className="text-sm text-status-green font-medium">
-                ✓ No issues found across {report.checks.filter(c => c.result && c.result.status !== 'skipped').length} completed checks.
-              </p>
+      {/* Hero */}
+      <section className="hero" style={{ gridTemplateColumns: '1.2fr 1fr', padding: '24px 28px' }}>
+        <div className="hero-l">
+          <span className="kicker">post_scan · external audit</span>
+          <h1 className="h-condensed" style={{ fontSize: 46, marginTop: 6, wordBreak: 'break-word' }}>
+            {report.clientLogo && (
+              <img
+                src={report.clientLogo}
+                alt=""
+                style={{ width: 40, height: 40, borderRadius: 10, objectFit: 'contain', verticalAlign: 'middle', marginRight: 12, background: 'var(--glass-bg)', border: '1px solid var(--glass-bd)' }}
+              />
             )}
+            {report.domain}
+          </h1>
+          <p className="sub">
+            External, unauthenticated attack-surface audit. {report.checks.filter(c => c.result && c.result.status !== 'skipped').length} of {report.checks.length} checks completed
+            {duration > 0 && ` · ${duration}s`}
+            {' · '}
+            {completedAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}.
+          </p>
+          <div className="hero-stats" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
+            <div className="hero-stat">
+              <div className="l">Critical</div>
+              <div className="v" style={{ color: 'var(--ember)' }}>{counts.Critical ?? 0}</div>
+            </div>
+            <div className="hero-stat">
+              <div className="l">High</div>
+              <div className="v" style={{ color: 'var(--ember-2)' }}>{counts.High ?? 0}</div>
+            </div>
+            <div className="hero-stat">
+              <div className="l">Medium</div>
+              <div className="v" style={{ color: 'var(--violet)' }}>{counts.Medium ?? 0}</div>
+            </div>
+            <div className="hero-stat">
+              <div className="l">Pass</div>
+              <div className="v" style={{ color: 'var(--mint)' }}>{passCount}</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 6, flexWrap: 'wrap' }}>
+            <button className="btn btn-primary" onClick={onRescan}>
+              <RefreshCw className="w-4 h-4" /> Re-run scan
+            </button>
+            <button
+              className="btn btn-ghost"
+              onClick={() => setPlanAiOpen(true)}
+              disabled={!aiEnabled}
+              title={aiEnabled
+                ? 'Generate a 1-week / 1-month / 1-quarter remediation plan locally'
+                : 'Pick a model in Settings → Local AI to enable'}
+              style={!aiEnabled ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+            >
+              <Sparkles className="w-4 h-4" style={{ color: aiEnabled ? 'var(--mint)' : undefined }} />
+              Action plan
+            </button>
+            <button
+              className="btn btn-ghost"
+              onClick={handleDownloadPdf}
+              disabled={downloading}
+              title={downloadError ?? 'Generate a branded PDF of this scan report'}
+              style={downloading ? { opacity: 0.6, cursor: 'wait' } : undefined}
+            >
+              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+              {downloading ? 'Generating…' : 'Export PDF'}
+            </button>
           </div>
         </div>
-      </div>
+        <div className="gauge-wrap">
+          <div className="gauge" style={{ width: 240, height: 240 }}>
+            <Gauge score={report.score} tone={tone} />
+            <div className="gauge-center">
+              <div className="lbl">scan score</div>
+              <div className="score">{report.score}<sub>/100</sub></div>
+              <div className="delta-pill">
+                {report.score >= 90 ? '▲ excellent' : report.score >= 70 ? '▲ good' : report.score >= 40 ? '— needs work' : '▼ critical'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {totalIssues === 0 && (
+        <div className="bubble" style={{ padding: 18, color: 'var(--mint)', fontWeight: 600, fontSize: 14, textAlign: 'center' }}>
+          ✓ No issues found across {passCount + (counts.Critical ?? 0) + (counts.High ?? 0) + (counts.Medium ?? 0)} completed checks.
+        </div>
+      )}
 
       {/* Findings by category */}
       <div className="space-y-4">

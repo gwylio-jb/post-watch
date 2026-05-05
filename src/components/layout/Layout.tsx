@@ -1,6 +1,20 @@
+import { useEffect, useState } from 'react';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import type { AppSection } from '../../data/types';
+
+/*
+ * AppShell — full-bleed wrapper with aurora + grain overlay.
+ *
+ * The Sprint-10 redesign moved every page into a single `.app-shell` grid
+ * (240px sidebar + main column). The decorative `.aurora` blobs and the
+ * `.grain` SVG noise overlay live here so they sit behind every page
+ * uniformly.
+ *
+ * The component is still called `Layout` to keep imports stable across
+ * `App.tsx` and the rest of the codebase. Internally it composes Sidebar
+ * + TopBar + a `.page` content slot per the handoff.
+ */
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,42 +28,37 @@ interface LayoutProps {
   alertCount?: number;
 }
 
-// Sections that manage their own padding/scrolling
-const FULL_BLEED: AppSection[] = ['post_status', 'post_audit', 'post_comply', 'post_scan', 'post_risk', 'post_intel', 'post_alert', 'post_report'];
-
 export default function Layout({
   children,
   activeSection,
   onSectionChange,
-  sidebarCollapsed,
-  onToggleSidebar,
   onOpenSearch,
   theme,
   onToggleTheme,
   alertCount = 0,
 }: LayoutProps) {
-  const fullBleed = FULL_BLEED.includes(activeSection);
+  // The redesign drops "collapsible sidebar" — the column is always 240px.
+  // We accept the prop for backwards-compat but ignore the value.
+
+  // Track theme via state so TopBar's toggle re-renders the icon.
+  // Mirrors the .dark / .theme-* classes on <html>.
+  const [, force] = useState(0);
+  useEffect(() => { force(n => n + 1); }, [theme]);
 
   return (
-    <div className="flex min-h-screen">
-      <Sidebar
-        activeSection={activeSection}
-        onSectionChange={onSectionChange}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={onToggleSidebar}
-        alertCount={alertCount}
-      />
-      <div className="flex-1 flex flex-col min-w-0">
+    <div className={`app-shell theme-${theme}`}>
+      <div className="aurora"><div className="blob" /></div>
+      <Sidebar activeSection={activeSection} onSectionChange={onSectionChange} alertCount={alertCount} />
+      <div className="main">
         <TopBar
           activeSection={activeSection}
           onOpenSearch={onOpenSearch}
           theme={theme}
           onToggleTheme={onToggleTheme}
         />
-        <main className={`flex-1 overflow-y-auto ${fullBleed ? '' : 'p-6'}`}>
-          {children}
-        </main>
+        {children}
       </div>
+      <div className="grain" />
     </div>
   );
 }
