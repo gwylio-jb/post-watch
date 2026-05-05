@@ -421,7 +421,7 @@ function RiskForm({ initial, defaultClientId, clients, appetiteThreshold, onSave
         transition={{ duration: 0.2 }}
       >
         <div className="flex items-center justify-between mb-6">
-          <h2 className="font-display font-black text-lg" style={{ color: 'var(--color-text-primary)' }}>
+          <h2 className="font-display font-bold text-lg" style={{ color: 'var(--color-text-primary)' }}>
             {initial ? 'Edit risk' : 'Add risk'}
           </h2>
           <button onClick={onClose} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-muted)' }}>

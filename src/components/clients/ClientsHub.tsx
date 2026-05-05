@@ -97,7 +97,7 @@ function ClientForm({ initial, onSave, onClose }: ClientFormProps) {
         onSubmit={handleSubmit}
       >
         <div className="flex items-start justify-between p-6" style={{ borderBottom: '1px solid var(--color-border)' }}>
-          <h2 className="font-display font-black text-xl" style={{ color: 'var(--color-text-primary)' }}>
+          <h2 className="font-display font-bold text-xl" style={{ color: 'var(--color-text-primary)' }}>
             {initial ? 'Edit client' : 'Add client'}
           </h2>
           <button

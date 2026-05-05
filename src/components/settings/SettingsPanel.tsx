@@ -175,7 +175,7 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
         {/* Header */}
         <div className="flex items-start justify-between p-6" style={{ borderBottom: '1px solid var(--color-border)' }}>
           <div>
-            <h2 className="font-display font-black text-xl" style={{ color: 'var(--color-text-primary)' }}>
+            <h2 className="font-display font-bold text-xl" style={{ color: 'var(--color-text-primary)' }}>
               Settings
             </h2>
             <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>

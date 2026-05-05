@@ -33,7 +33,7 @@ export default function TopBar({ activeSection, onOpenSearch, theme, onToggleThe
       }}
     >
       <div className="flex items-baseline gap-3">
-        <h1 className="font-display font-black text-2xl text-text-primary leading-tight">
+        <h1 className="font-display font-bold text-2xl text-text-primary leading-tight">
           {meta.title}
         </h1>
         <div className="flex items-center gap-2">

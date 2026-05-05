@@ -226,7 +226,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2
-                className="font-display font-black text-xl"
+                className="font-display font-bold text-xl"
                 style={{ color: '#F8F9FA', letterSpacing: '-0.02em' }}
               >
                 Security posture
@@ -513,7 +513,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   Coming in V2.1
                 </span>
               </div>
-              <h3 className="font-display font-black text-base" style={{ color: '#F8F9FA', letterSpacing: '-0.01em' }}>
+              <h3 className="font-display font-bold text-base" style={{ color: '#F8F9FA', letterSpacing: '-0.01em' }}>
                 AI-powered security intelligence
               </h3>
               <p style={{ fontSize: '12px', color: 'rgba(248,249,250,0.55)', marginTop: 4, maxWidth: 500 }}>
@@ -571,7 +571,7 @@ function RoadmapModal({ onClose }: { onClose: () => void }) {
                 V2.1 roadmap
               </span>
             </div>
-            <h2 className="font-display font-black text-xl" style={{ color: 'var(--color-text-primary)' }}>
+            <h2 className="font-display font-bold text-xl" style={{ color: 'var(--color-text-primary)' }}>
               AI-powered security intelligence
             </h2>
             <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>

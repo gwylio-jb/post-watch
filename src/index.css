@@ -94,7 +94,10 @@
      Typekit request and gives a deterministic render. system-ui is the safety
      net; -apple-system is the macOS-native sans for any final fallback. */
   --font-body: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", sans-serif;
-  --font-display: "Archivo Black", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  /* Display reuses the body family at weight 700 — see .font-display below.
+     Sprint 9: dropped Archivo Black, which was single-weight 900 only and
+     read as chunky/blocky at everyday heading sizes. */
+  --font-display: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", "IBM Plex Mono", ui-monospace, monospace;
 }
 
@@ -175,8 +178,11 @@ body {
 
 .font-display {
   font-family: var(--font-display);
-  font-weight: 900;
-  letter-spacing: -0.025em;
+  /* 700 reads as confidently bold without Archivo-Black-style chunkiness.
+     For a true hero number (the WP score, the PDF cover title) callers can
+     still pass `font-weight: 800` inline. */
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .font-mono {
