@@ -33,6 +33,9 @@ export default function App() {
   const [theme, setTheme] = useLocalStorage<'dark' | 'light'>('theme', 'dark');
   const [searchOpen, setSearchOpen] = useState(false);
   const [targetId, setTargetId] = useState<string | null>(null);
+  // Deep-link target for the WordPress security hub — set by clicking a
+  // recent-scan tile on the Dashboard, consumed by WpAuditHub on mount.
+  const [targetReportId, setTargetReportId] = useState<string | null>(null);
 
   // Alert badge — derived from the SAME logic as the Alerts tab so the
   // count on the sidebar always matches the list inside. Also honours
@@ -119,7 +122,16 @@ export default function App() {
     }
     setActiveSection(section);
     setTargetId(null);
+    setTargetReportId(null);
   }, [setActiveSection, handleOpenSearch]);
+
+  // Dashboard recent-scan tiles call this to deep-link straight into the
+  // matching report. WpAuditHub picks the id up via its `targetReportId`
+  // prop and clears it on consumption.
+  const handleOpenReport = useCallback((reportId: string) => {
+    setTargetReportId(reportId);
+    setActiveSection('post_scan');
+  }, [setActiveSection]);
 
   const handleAddToCheatsheet = useCallback((_controlId: string) => {
     setActiveSection('post_comply');
@@ -145,7 +157,7 @@ export default function App() {
         alertCount={alertCount}
       >
         {activeSection === 'post_status' && (
-          <Dashboard onNavigate={handleSectionChange} />
+          <Dashboard onNavigate={handleSectionChange} onOpenReport={handleOpenReport} />
         )}
         <Suspense fallback={null}>
           {activeSection === 'post_clients' && <ClientsHub />}
@@ -161,7 +173,12 @@ export default function App() {
           {activeSection === 'post_comply' && (
             <ComplyModule clauses={managementClauses} controls={allControls} />
           )}
-          {activeSection === 'post_scan' && <WpAuditHub />}
+          {activeSection === 'post_scan' && (
+            <WpAuditHub
+              targetReportId={targetReportId}
+              onTargetConsumed={() => setTargetReportId(null)}
+            />
+          )}
           {activeSection === 'post_risk' && <RiskRegister />}
           {activeSection === 'post_intel' && <ThreatIntel />}
           {activeSection === 'post_alert' && <AlertCenter onNavigate={handleSectionChange} />}

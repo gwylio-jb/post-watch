@@ -11,6 +11,8 @@ import type { DonutSegment } from '../charts/Donut';
 
 interface DashboardProps {
   onNavigate: (section: import('../../data/types').AppSection) => void;
+  /** Deep-link to a specific saved scan report inside post_scan. */
+  onOpenReport: (reportId: string) => void;
 }
 
 function formatTimeAgo(date: Date): string {
@@ -24,7 +26,7 @@ function formatTimeAgo(date: Date): string {
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
-export default function Dashboard({ onNavigate }: DashboardProps) {
+export default function Dashboard({ onNavigate, onOpenReport }: DashboardProps) {
   const [savedReports] = useLocalStorage<AuditReport[]>('wp-audit-reports', []);
   const [gapSessions] = useLocalStorage<GapAnalysisSession[]>('gap-sessions', []);
   const [roadmapOpen, setRoadmapOpen] = useState(false);
@@ -269,7 +271,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                     type="button"
                     className="scan-row"
                     key={r.id}
-                    onClick={() => onNavigate('post_scan')}
+                    onClick={() => onOpenReport(r.id)}
                     aria-label={`View scan for ${r.domain}, score ${r.score} out of 100`}
                   >
                     <div className={`scan-score ${tone}`} aria-hidden>{r.score}</div>

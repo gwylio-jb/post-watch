@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldAlert, Key, ChevronDown, ChevronUp, Globe, Trash2, Clock, ExternalLink, Users } from 'lucide-react';
 import type { AuditCheck, AuditReport, AuditApiKeys, CheckResult } from '../../data/auditTypes';
@@ -14,7 +14,14 @@ type Phase = 'idle' | 'scanning' | 'report';
 
 const MAX_SAVED = 20;
 
-export default function WpAuditHub() {
+interface WpAuditHubProps {
+  /** When set, WpAuditHub mounts straight into the matching report. */
+  targetReportId?: string | null;
+  /** Called once the target has been consumed so App can clear the state. */
+  onTargetConsumed?: () => void;
+}
+
+export default function WpAuditHub({ targetReportId, onTargetConsumed }: WpAuditHubProps = {}) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [urlInput, setUrlInput] = useState('');
   const [urlError, setUrlError] = useState('');
@@ -122,6 +129,26 @@ export default function WpAuditHub() {
     setCompletedReport(report);
     setPhase('report');
   }, []);
+
+  // Deep-link: when App passes a `targetReportId` (e.g. user clicked a recent
+  // scan tile on the dashboard), jump straight into that report. We consume
+  // the target on the way in so a subsequent "back" doesn't trap the user
+  // re-opening the same report. Guarded by `phase` to skip if a scan is
+  // already running — the in-flight scan takes precedence.
+  useEffect(() => {
+    if (!targetReportId) return;
+    if (phase === 'scanning') return;
+    const list = Array.isArray(savedReports) ? savedReports : [];
+    const hit = list.find(r => r.id === targetReportId);
+    if (hit) {
+      setCompletedReport(hit);
+      setPhase('report');
+    }
+    onTargetConsumed?.();
+    // Intentionally only depends on the target id — savedReports churn
+    // shouldn't re-open the same report after user navigates away.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetReportId]);
 
   const handleDeleteReport = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
