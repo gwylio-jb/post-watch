@@ -14,17 +14,19 @@ import {
 
 type AlertSource = Alert['source'];
 
-const severityColors: Record<AlertSeverity, { bg: string; text: string; border: string }> = {
-  Critical: { bg: '#FFF1EE', text: '#FF4A1C', border: 'rgba(255,74,28,0.35)' },
-  High:     { bg: '#FFF7ED', text: '#D97706', border: 'rgba(217,119,6,0.35)' },
-  Medium:   { bg: '#F3F0FF', text: '#8B5CF6', border: 'rgba(139,92,246,0.35)' },
-  Low:      { bg: '#E6FAF5', text: '#00B589', border: 'rgba(0,181,137,0.35)' },
+// Severity → redesign-token colours. `text` is the foreground accent, `pill`
+// matches the .pill class variant used for the badge. Theme-aware via tokens.
+const severityColors: Record<AlertSeverity, { text: string; pill: 'ember' | 'violet' | 'mint' }> = {
+  Critical: { text: 'var(--ember)',  pill: 'ember'  },
+  High:     { text: 'var(--ember-2, var(--ember))', pill: 'ember' },
+  Medium:   { text: 'var(--violet)', pill: 'violet' },
+  Low:      { text: 'var(--mint)',   pill: 'mint'   },
 };
 
 const sourceLabels: Record<AlertSource, { label: string; icon: React.ElementType; color: string }> = {
-  post_scan:   { label: 'WordPress security', icon: ScanSearch,   color: '#00D9A3' },
-  post_comply: { label: 'Compliance',          icon: ShieldCheck,  color: '#8B5CF6' },
-  post_risk:   { label: 'Risk hub',             icon: AlertTriangle, color: '#D97706' },
+  post_scan:   { label: 'WordPress security', icon: ScanSearch,    color: 'var(--mint)'   },
+  post_comply: { label: 'Compliance',         icon: ShieldCheck,   color: 'var(--violet)' },
+  post_risk:   { label: 'Risk hub',           icon: AlertTriangle, color: 'var(--ember)'  },
 };
 
 // ─── Alert card ───────────────────────────────────────────────────────────────
@@ -48,19 +50,19 @@ function AlertCard({
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 8, height: 0, marginBottom: 0 }}
-      className="card-elevated p-4"
-      style={{ borderLeft: `3px solid ${sc.text}` }}
+      className="bubble"
+      style={{ padding: 16, borderLeft: `3px solid ${sc.text}` }}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1">
-          {/* Source + timestamp */}
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="flex items-center gap-1.5">
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Source + timestamp + severity pill */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <SrcIcon className="w-3 h-3" style={{ color: src.color }} />
               <span
                 style={{
-                  fontFamily: '"JetBrains Mono", monospace',
-                  fontSize: '9px',
+                  fontFamily: 'var(--font-redesign-mono)',
+                  fontSize: 10,
                   color: src.color,
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
@@ -70,53 +72,47 @@ function AlertCard({
                 {src.label}
               </span>
             </div>
-            <span style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontFamily: '"JetBrains Mono", monospace' }}>
+            <span style={{ fontSize: 10, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>
               {new Date(alert.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
             </span>
-            <span
-              style={{
-                fontSize: '9px',
-                fontWeight: 700,
-                background: sc.bg,
-                color: sc.text,
-                border: `1px solid ${sc.border}`,
-                borderRadius: '3px',
-                padding: '0 5px',
-                fontFamily: '"JetBrains Mono", monospace',
-              }}
-            >
-              {alert.severity}
+            <span className={`pill ${sc.pill}`} style={{ fontSize: 10, padding: '2px 8px' }}>
+              <span className="dot" style={{ background: sc.text }} />{alert.severity}
             </span>
           </div>
 
           {/* Title */}
-          <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 4, lineHeight: 1.4 }}>
+          <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--ink-1)', marginBottom: 4, lineHeight: 1.4 }}>
             {alert.title}
           </h4>
 
           {/* Detail */}
-          <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.5 }}>
             {alert.detail}
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
           <button
+            type="button"
             onClick={() => onNavigate(alert.source)}
-            className="text-xs px-2.5 py-1.5 rounded-lg font-medium"
-            style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-primary)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-secondary)'; }}
+            className="btn btn-ghost"
+            style={{ fontSize: 11, padding: '6px 10px' }}
           >
             View →
           </button>
           <button
+            type="button"
             onClick={() => onDismiss(alert.id)}
-            className="p-1.5 rounded-lg"
-            style={{ color: 'var(--color-text-muted)' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-primary)'; (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-alt)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-muted)'; (e.currentTarget as HTMLElement).style.background = ''; }}
-            title="Dismiss"
+            aria-label={`Dismiss ${alert.title}`}
+            style={{
+              padding: 6, borderRadius: 8,
+              background: 'transparent', border: 0,
+              color: 'var(--ink-3)',
+              cursor: 'pointer',
+              display: 'grid', placeItems: 'center',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--ember)'; (e.currentTarget as HTMLElement).style.background = 'color-mix(in oklab, var(--ember) 12%, transparent)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--ink-3)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -175,94 +171,137 @@ export default function AlertCenter({ onNavigate }: AlertCenterProps) {
     Low:      visible.filter(a => a.severity === 'Low').length,
   };
 
-  return (
-    <div className="flex flex-col h-full overflow-auto">
-      <div className="p-8 space-y-6">
+  const totalOpen = visible.length;
+  const totalRaw = allAlerts.length;
+  const dismissedCount = totalRaw - filterDismissed(allAlerts, safeDismissed).length;
 
-        {/* Header stats */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-5">
+  return (
+    <div className="page">
+      {/* Hero */}
+      <section className="hero">
+        <div className="hero-l">
+          <span className="kicker ember">post_alert · live alerts</span>
+          <h1 className="h-condensed title">
+            What needs attention<span className="u">_</span><br />right now.
+          </h1>
+          <p className="sub">
+            Derived from WP scan findings, compliance gap analysis, and TLS certificate data. Dismiss what's actioned — the badge mirrors what's open.
+          </p>
+          <div className="hero-stats">
+            <div className="hero-stat">
+              <div className="l">Open</div>
+              <div className="v" style={{ color: totalOpen > 0 ? 'var(--ember)' : 'var(--mint)' }}>{totalOpen}</div>
+            </div>
+            <div className="hero-stat">
+              <div className="l">Critical</div>
+              <div className="v" style={{ color: counts.Critical > 0 ? 'var(--ember)' : undefined }}>{counts.Critical}</div>
+            </div>
+            <div className="hero-stat">
+              <div className="l">Dismissed</div>
+              <div className="v">{dismissedCount}</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+            {visible.length > 0 && (
+              <button type="button" onClick={dismissAll} className="btn btn-ghost">
+                <CheckCircle className="w-4 h-4" /> Dismiss all
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Right pane — severity breakdown */}
+        <div className="gauge-wrap" style={{ alignItems: 'stretch' }}>
+          <div
+            style={{
+              padding: '20px 22px',
+              borderRadius: 22,
+              background: 'var(--glass-bg)',
+              border: '1px solid var(--glass-bd)',
+              backdropFilter: 'blur(20px)',
+              display: 'flex', flexDirection: 'column', gap: 8,
+              minWidth: 240,
+            }}
+          >
+            <span className="kicker violet">by severity</span>
             {(Object.entries(counts) as [AlertSeverity, number][]).map(([sev, count]) => {
               const sc = severityColors[sev];
               return (
-                <div key={sev} className="flex items-center gap-1.5">
-                  <span style={{ fontSize: '22px', fontWeight: 800, color: count > 0 ? sc.text : 'var(--color-text-muted)', fontFamily: 'var(--font-display)', lineHeight: 1 }}>{count}</span>
-                  <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontFamily: '"JetBrains Mono", monospace' }}>{sev.toLowerCase()}</span>
+                <div key={sev} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0' }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: sc.text, flexShrink: 0, opacity: count > 0 ? 1 : 0.35 }} />
+                  <span style={{ flex: 1, fontSize: 13, color: 'var(--ink-2)' }}>{sev}</span>
+                  <span style={{ fontFamily: 'var(--font-redesign-condensed)', fontWeight: 800, fontSize: 22, lineHeight: 1, color: count > 0 ? sc.text : 'var(--ink-3)' }}>{count}</span>
                 </div>
               );
             })}
           </div>
-          {visible.length > 0 && (
-            <button
-              onClick={dismissAll}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
-              style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
-            >
-              <CheckCircle className="w-3.5 h-3.5" />
-              Dismiss all
-            </button>
-          )}
         </div>
+      </section>
 
-        {/* Severity filters */}
-        <div className="flex items-center gap-1 p-1 rounded-lg w-fit" style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)' }}>
-          {(['All', 'Critical', 'High', 'Medium', 'Low'] as const).map(s => (
+      {/* Severity filter strip */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: 4, background: 'var(--glass-bg)', border: '1px solid var(--glass-bd)', borderRadius: 14, width: 'fit-content' }}>
+        {(['All', 'Critical', 'High', 'Medium', 'Low'] as const).map(s => {
+          const active = filterSev === s;
+          const sevColor = s !== 'All' ? severityColors[s as AlertSeverity]?.text : 'var(--ink-1)';
+          return (
             <button
               key={s}
+              type="button"
               onClick={() => setFilterSev(s)}
-              className="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
               style={{
-                background: filterSev === s ? 'var(--color-surface)' : 'transparent',
-                color: filterSev === s
-                  ? (s === 'All' ? 'var(--color-text-primary)' : severityColors[s as AlertSeverity]?.text ?? 'var(--color-text-primary)')
-                  : 'var(--color-text-muted)',
-                boxShadow: filterSev === s ? 'var(--shadow-card)' : 'none',
+                padding: '6px 12px',
+                borderRadius: 10,
+                fontSize: 12, fontWeight: 500,
+                background: active ? 'var(--bg-2)' : 'transparent',
+                color: active ? sevColor : 'var(--ink-3)',
+                border: 0,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                boxShadow: active ? 'var(--tile-shadow)' : 'none',
               }}
+              aria-pressed={active}
             >
               {s}
               {s !== 'All' && counts[s as AlertSeverity] > 0 && (
-                <span className="ml-1.5" style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: '10px' }}>
-                  ({counts[s as AlertSeverity]})
+                <span style={{ marginLeft: 6, fontFamily: 'var(--font-redesign-mono)', fontSize: 10 }}>
+                  {counts[s as AlertSeverity]}
                 </span>
               )}
             </button>
-          ))}
-        </div>
-
-        {/* Alert list */}
-        {visible.length === 0 ? (
-          <motion.div
-            className="card-elevated flex flex-col items-center justify-center py-16 gap-3"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            <CheckCircle className="w-12 h-12" style={{ color: '#00D9A3', opacity: 0.6 }} />
-            <span className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>All clear</span>
-            <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', fontFamily: '"JetBrains Mono", monospace' }}>
-              // {allAlerts.length === 0 ? 'Run a scan or gap analysis to generate alerts' : 'All alerts dismissed'}
-            </span>
-          </motion.div>
-        ) : (
-          <div className="space-y-3">
-            <AnimatePresence mode="popLayout">
-              {visible.map(alert => (
-                <AlertCard
-                  key={alert.id}
-                  alert={alert}
-                  onDismiss={dismiss}
-                  onNavigate={onNavigate}
-                />
-              ))}
-            </AnimatePresence>
-          </div>
-        )}
-
-        {/* Data source note */}
-        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontFamily: '"JetBrains Mono", monospace', paddingTop: 4 }}>
-          // Alerts derived from WP scan findings, compliance gap analysis, and TLS certificate data.
-        </div>
-
+          );
+        })}
       </div>
+
+      {/* Alert list */}
+      {visible.length === 0 ? (
+        <motion.div
+          className="bubble"
+          style={{ padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, textAlign: 'center' }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <CheckCircle className="w-12 h-12" style={{ color: 'var(--mint)', opacity: 0.7 }} />
+          <span style={{ fontFamily: 'var(--font-redesign-display)', fontSize: 18, fontWeight: 700, color: 'var(--ink-1)' }}>
+            All clear
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>
+            // {allAlerts.length === 0 ? 'Run a scan or gap analysis to generate alerts' : 'All alerts dismissed'}
+          </span>
+        </motion.div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <AnimatePresence mode="popLayout">
+            {visible.map(alert => (
+              <AlertCard
+                key={alert.id}
+                alert={alert}
+                onDismiss={dismiss}
+                onNavigate={onNavigate}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }

@@ -57,27 +57,27 @@ const MOCK_FEED = [
 
 type Severity = 'Critical' | 'High' | 'Medium' | 'Low';
 
-const severityColors: Record<Severity, { bg: string; text: string; border: string }> = {
-  Critical: { bg: '#FFF1EE', text: '#FF4A1C', border: 'rgba(255,74,28,0.3)' },
-  High:     { bg: '#FFF7ED', text: '#D97706', border: 'rgba(217,119,6,0.3)' },
-  Medium:   { bg: '#F3F0FF', text: '#8B5CF6', border: 'rgba(139,92,246,0.3)' },
-  Low:      { bg: '#E6FAF5', text: '#00B589', border: 'rgba(0,181,137,0.3)' },
+const severityToken: Record<Severity, { color: string; pill: 'ember' | 'violet' | 'mint' }> = {
+  Critical: { color: 'var(--ember)',  pill: 'ember'  },
+  High:     { color: 'var(--ember-2, var(--ember))', pill: 'ember' },
+  Medium:   { color: 'var(--violet)', pill: 'violet' },
+  Low:      { color: 'var(--mint)',   pill: 'mint'   },
 };
 
 function TacticTag({ label }: { label: string }) {
   return (
     <span
       style={{
-        fontFamily: '"JetBrains Mono", monospace',
-        fontSize: '9px',
+        fontFamily: 'var(--font-redesign-mono)',
+        fontSize: 9,
         fontWeight: 600,
         letterSpacing: '0.06em',
         textTransform: 'uppercase',
-        color: '#8B5CF6',
-        background: 'rgba(139,92,246,0.1)',
-        border: '1px solid rgba(139,92,246,0.25)',
-        borderRadius: '3px',
-        padding: '1px 5px',
+        color: 'var(--violet)',
+        background: 'color-mix(in oklab, var(--violet) 12%, transparent)',
+        border: '1px solid color-mix(in oklab, var(--violet) 28%, transparent)',
+        borderRadius: 4,
+        padding: '2px 6px',
       }}
     >
       {label}
@@ -86,193 +86,141 @@ function TacticTag({ label }: { label: string }) {
 }
 
 export default function ThreatIntel() {
-  return (
-    <div className="flex flex-col h-full overflow-auto">
-      <div className="p-8 space-y-6">
+  const counts = MOCK_FEED.reduce<Record<Severity, number>>((acc, f) => {
+    acc[f.severity] = (acc[f.severity] ?? 0) + 1; return acc;
+  }, { Critical: 0, High: 0, Medium: 0, Low: 0 });
 
-        {/* V2.1 teaser banner */}
-        <div
-          className="glass-card-navy rounded-xl px-5 py-4 flex items-center justify-between"
-          style={{ background: 'rgba(26,35,50,0.85)' }}
-        >
-          <div className="flex items-center gap-3">
-            <Zap className="w-5 h-5" style={{ color: '#00D9A3' }} />
-            <div>
-              <div
-                style={{
-                  fontFamily: '"JetBrains Mono", monospace',
-                  fontSize: '9px',
-                  color: '#00D9A3',
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  marginBottom: 2,
-                }}
-              >
-                // Live in V2.1
-              </div>
-              <p style={{ fontSize: '13px', color: '#F8F9FA', fontWeight: 500 }}>
-                Real-time feed powered by WPScan Database API + NVD CVE feed
-              </p>
+  return (
+    <div className="page">
+      {/* Hero */}
+      <section className="hero">
+        <div className="hero-l">
+          <span className="kicker violet">post_intel · feed</span>
+          <h1 className="h-condensed title">
+            Threat intelligence<span className="u">_</span><br />for the WordPress stack.
+          </h1>
+          <p className="sub">
+            Curated CVEs from the WPScan Vulnerability Database and NVD, scoped to WordPress core, plugins and themes. Sample data shown — drop a WPScan API token in Settings to enable the live feed in V2.1.
+          </p>
+          <div className="hero-stats">
+            <div className="hero-stat">
+              <div className="l">In feed</div>
+              <div className="v">{MOCK_FEED.length}</div>
+            </div>
+            <div className="hero-stat">
+              <div className="l">Critical</div>
+              <div className="v" style={{ color: counts.Critical > 0 ? 'var(--ember)' : undefined }}>{counts.Critical}</div>
+            </div>
+            <div className="hero-stat">
+              <div className="l">High</div>
+              <div className="v" style={{ color: counts.High > 0 ? 'var(--ember)' : undefined }}>{counts.High}</div>
             </div>
           </div>
-          <div
-            style={{
-              fontFamily: '"JetBrains Mono", monospace',
-              fontSize: '10px',
-              color: 'rgba(248,249,250,0.45)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '6px',
-              padding: '3px 8px',
-            }}
-          >
-            post_intel
-          </div>
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', fontFamily: '"JetBrains Mono", monospace' }}>
-              // Sample data — connect WPScan API token in Settings for live feed
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Last updated: just now</span>
-            <button
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
-              style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}
-            >
-              <RefreshCw className="w-3 h-3" />
-              Refresh
+          <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+            <button type="button" className="btn btn-ghost" disabled title="Live feed lands in V2.1" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+              <RefreshCw className="w-4 h-4" /> Refresh feed
             </button>
           </div>
         </div>
 
-        {/* Feed */}
-        <div className="space-y-3">
-          {MOCK_FEED.map((item, i) => {
-            const sc = severityColors[item.severity];
-            return (
-              <motion.div
-                key={item.id}
-                className="card-elevated p-5"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.07 }}
-                style={{ borderLeft: `3px solid ${sc.text}` }}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    {/* Timestamp + source */}
-                    <div className="flex items-center gap-3 mb-2">
-                      <span
-                        style={{
-                          fontFamily: '"JetBrains Mono", monospace',
-                          fontSize: '10px',
-                          color: 'var(--color-text-muted)',
-                        }}
-                      >
-                        {item.published}
-                      </span>
-                      <span
-                        style={{
-                          fontFamily: '"JetBrains Mono", monospace',
-                          fontSize: '9px',
-                          color: 'var(--color-text-muted)',
-                          background: 'var(--color-surface-alt)',
-                          borderRadius: '3px',
-                          padding: '1px 5px',
-                        }}
-                      >
-                        {item.source}
-                      </span>
-                    </div>
-
-                    {/* Title */}
-                    <h3
-                      className="font-semibold text-sm mb-1.5"
-                      style={{ color: 'var(--color-text-primary)', lineHeight: 1.4 }}
-                    >
-                      {item.title}
-                    </h3>
-
-                    {/* Description */}
-                    <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', lineHeight: 1.5, marginBottom: 10 }}>
-                      {item.description}
-                    </p>
-
-                    {/* Tags row */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {/* Severity badge */}
-                      <span
-                        style={{
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          background: sc.bg,
-                          color: sc.text,
-                          border: `1px solid ${sc.border}`,
-                          borderRadius: '4px',
-                          padding: '1px 7px',
-                          fontFamily: '"JetBrains Mono", monospace',
-                        }}
-                      >
-                        {item.severity}
-                      </span>
-
-                      {/* CVE ID */}
-                      <span
-                        style={{
-                          fontFamily: '"JetBrains Mono", monospace',
-                          fontSize: '10px',
-                          color: 'var(--color-text-muted)',
-                        }}
-                      >
-                        {item.cveId}
-                      </span>
-
-                      {/* Component + versions */}
-                      <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
-                        {item.component} · <span style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: '10px' }}>{item.affectedVersions}</span>
-                      </span>
-
-                      {/* MITRE tactics */}
-                      {item.tactics.map(t => <TacticTag key={t} label={t} />)}
-                    </div>
-                  </div>
-
-                  <a
-                    href={`https://cve.mitre.org/cgi-bin/cvename.cgi?name=${item.cveId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs flex-shrink-0"
-                    style={{ color: 'var(--color-text-muted)', textDecoration: 'none' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--color-mint)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--color-text-muted)'; }}
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        {/* Footer note */}
-        <div
-          className="card-elevated p-4"
-          style={{ border: '1px solid rgba(0,217,163,0.2)', background: 'var(--color-mint-subtle)' }}
-        >
-          <div className="flex items-start gap-3">
-            <Eye className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#00B589' }} />
-            <div>
-              <p style={{ fontSize: '12px', fontWeight: 600, color: '#00B589', marginBottom: 2 }}>V2.1: Live threat intelligence</p>
-              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-                In V2.1, this module will connect to the WPScan Vulnerability Database API (free tier: 25 req/day) for live plugin and theme CVEs, filtered to your scanned site's detected plugins. Add your WPScan API token in Settings.
-              </p>
+        {/* Right pane — V2.1 status */}
+        <div className="gauge-wrap" style={{ alignItems: 'stretch' }}>
+          <div
+            style={{
+              padding: '20px 22px',
+              borderRadius: 22,
+              background: 'var(--glass-bg)',
+              border: '1px solid var(--glass-bd)',
+              backdropFilter: 'blur(20px)',
+              display: 'flex', flexDirection: 'column', gap: 10,
+              minWidth: 240,
+            }}
+          >
+            <span className="kicker">v2.1 roadmap</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Zap className="w-4 h-4" style={{ color: 'var(--mint)' }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-1)' }}>Live feed coming</span>
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.5, margin: 0 }}>
+              Powered by the WPScan Database API (free tier: 25 req/day) + NVD CVE feed. Filtered to plugins detected on your scanned sites.
+            </p>
+            <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>
+              <Eye className="w-3 h-3" /> sample data shown
             </div>
           </div>
         </div>
+      </section>
 
+      {/* Feed */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {MOCK_FEED.map((item, i) => {
+          const sc = severityToken[item.severity];
+          return (
+            <motion.div
+              key={item.id}
+              className="bubble"
+              style={{ padding: 18, borderLeft: `3px solid ${sc.color}` }}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {/* Timestamp + source */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: 'var(--font-redesign-mono)', fontSize: 10, color: 'var(--ink-3)' }}>
+                      {item.published}
+                    </span>
+                    <span style={{ fontFamily: 'var(--font-redesign-mono)', fontSize: 9, color: 'var(--ink-3)', background: 'color-mix(in oklab, var(--bg-2) 50%, transparent)', borderRadius: 4, padding: '1px 6px', border: '1px solid var(--line)' }}>
+                      {item.source}
+                    </span>
+                  </div>
+
+                  {/* Title */}
+                  <h3 style={{ margin: 0, fontWeight: 600, fontSize: 14, color: 'var(--ink-1)', marginBottom: 6, lineHeight: 1.4 }}>
+                    {item.title}
+                  </h3>
+
+                  {/* Description */}
+                  <p style={{ margin: 0, fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.5, marginBottom: 10 }}>
+                    {item.description}
+                  </p>
+
+                  {/* Tags row */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span className={`pill ${sc.pill}`} style={{ fontSize: 10, padding: '2px 8px' }}>
+                      <span className="dot" style={{ background: sc.color }} />{item.severity}
+                    </span>
+                    <span style={{ fontFamily: 'var(--font-redesign-mono)', fontSize: 10, color: 'var(--ink-3)' }}>
+                      {item.cveId}
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--ink-2)' }}>
+                      {item.component} · <span style={{ fontFamily: 'var(--font-redesign-mono)', fontSize: 10 }}>{item.affectedVersions}</span>
+                    </span>
+                    {item.tactics.map(t => <TacticTag key={t} label={t} />)}
+                  </div>
+                </div>
+
+                <a
+                  href={`https://cve.mitre.org/cgi-bin/cvename.cgi?name=${item.cveId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Open ${item.cveId} on cve.mitre.org`}
+                  style={{
+                    color: 'var(--ink-3)', textDecoration: 'none',
+                    padding: 6, borderRadius: 8,
+                    display: 'grid', placeItems: 'center',
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--mint)'; (e.currentTarget as HTMLElement).style.background = 'color-mix(in oklab, var(--mint) 12%, transparent)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--ink-3)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
     </div>
   );
