@@ -11,7 +11,20 @@ export default function SettingsMenu() {
   const [toast, setToast] = useState<Toast>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const summary = summariseStorage();
+
+  // When the modal panel closes, return focus to the cog trigger so keyboard
+  // users land back where they started rather than at the document root.
+  // Tracks the previous value via a ref so we only fire on the open→close
+  // transition (not on initial mount, which would steal focus on first paint).
+  const wasSettingsOpen = useRef(false);
+  useEffect(() => {
+    if (wasSettingsOpen.current && !settingsOpen) {
+      triggerRef.current?.focus({ preventScroll: true });
+    }
+    wasSettingsOpen.current = settingsOpen;
+  }, [settingsOpen]);
 
   // Close on outside click + Escape
   useEffect(() => {
@@ -82,6 +95,7 @@ export default function SettingsMenu() {
   return (
     <div ref={menuRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(o => !o)}
         className="icon-btn"

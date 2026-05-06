@@ -47,9 +47,12 @@ export default function Layout({
 
   return (
     <div className={`app-shell theme-${theme}`}>
+      {/* Skip-to-content — invisible until focused. Lets keyboard / screen-reader
+          users jump past the sidebar and topbar in one tab. */}
+      <a href="#post-watch-main" className="skip-link">Skip to main content</a>
       <div className="aurora"><div className="blob" /></div>
       <Sidebar activeSection={activeSection} onSectionChange={onSectionChange} alertCount={alertCount} />
-      <div className="main">
+      <main className="main" id="post-watch-main" tabIndex={-1}>
         <TopBar
           activeSection={activeSection}
           onOpenSearch={onOpenSearch}
@@ -59,7 +62,7 @@ export default function Layout({
           alertCount={alertCount}
         />
         {children}
-      </div>
+      </main>
       <div className="grain" />
     </div>
   );

@@ -155,33 +155,80 @@ export default function Dashboard({ onNavigate, onOpenReport }: DashboardProps) 
         </div>
       </section>
 
-      {/* Metric strip */}
-      <section className="metric-strip">
-        <div className="metric mint">
-          <span className="k">WP scans · all time</span>
-          <div className="v">{metrics.totalScans}</div>
-          <div className="s">{metrics.scansThisMonth} this month</div>
-          <div className="blob" />
-        </div>
-        <div className="metric violet">
-          <span className="k">Compliance</span>
-          <div className="v">{metrics.compliancePct !== null ? <>{metrics.compliancePct}<small>%</small></> : '—'}</div>
-          <div className="s">{metrics.totalAssessed > 0 ? `${metrics.compliant} of ${metrics.totalAssessed} controls` : 'Start a gap analysis'}</div>
-          <div className="blob" />
-        </div>
-        <div className="metric ember">
-          <span className="k">Active alerts</span>
-          <div className="v">{metrics.alertCount}</div>
-          <div className="s">{metrics.alertCount > 0 ? 'Critical & high findings' : 'All clear'}</div>
-          <div className="blob" />
-        </div>
-        <div className="metric navy">
-          <span className="k">Unique domains</span>
-          <div className="v">{metrics.uniqueDomains}</div>
-          <div className="s">Monitored sites</div>
-          <div className="blob" />
-        </div>
-      </section>
+      {/* First-launch welcome — shown when there's truly no data yet. Swaps
+          out the metric strip (which would otherwise read "0 / 0 / — / 0"
+          and look broken). Once any data lands, the strip takes over. */}
+      {metrics.totalScans === 0 && metrics.totalAssessed === 0 ? (
+        <section
+          className="bubble"
+          style={{
+            padding: '24px 28px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 20,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div
+            style={{
+              width: 64, height: 64, borderRadius: 18,
+              display: 'grid', placeItems: 'center',
+              background: 'color-mix(in oklab, var(--mint) 15%, transparent)',
+              border: '1px solid color-mix(in oklab, var(--mint) 30%, transparent)',
+              flexShrink: 0,
+            }}
+          >
+            <ScanSearch className="w-7 h-7" style={{ color: 'var(--mint)' }} />
+          </div>
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <span className="kicker">welcome</span>
+            <h3 style={{ margin: '6px 0 4px', fontFamily: 'var(--font-redesign-display)', fontSize: 20, fontWeight: 700, color: 'var(--ink-1)', letterSpacing: '-0.01em' }}>
+              Three steps to a first report
+            </h3>
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+              <strong style={{ color: 'var(--mint)' }}>1.</strong> Add a client →{' '}
+              <strong style={{ color: 'var(--mint)' }}>2.</strong> Run a WordPress scan →{' '}
+              <strong style={{ color: 'var(--mint)' }}>3.</strong> Generate a branded PDF.
+              Compliance gap-analysis sits alongside whenever you're ready.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+            <button type="button" className="btn btn-primary" onClick={() => onNavigate('post_clients')}>
+              Add client
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => onNavigate('post_scan')}>
+              <ScanSearch className="w-4 h-4" /> First scan
+            </button>
+          </div>
+        </section>
+      ) : (
+        <section className="metric-strip">
+          <div className="metric mint">
+            <span className="k">WP scans · all time</span>
+            <div className="v">{metrics.totalScans}</div>
+            <div className="s">{metrics.scansThisMonth} this month</div>
+            <div className="blob" />
+          </div>
+          <div className="metric violet">
+            <span className="k">Compliance</span>
+            <div className="v">{metrics.compliancePct !== null ? <>{metrics.compliancePct}<small>%</small></> : '—'}</div>
+            <div className="s">{metrics.totalAssessed > 0 ? `${metrics.compliant} of ${metrics.totalAssessed} controls` : 'Start a gap analysis'}</div>
+            <div className="blob" />
+          </div>
+          <div className="metric ember">
+            <span className="k">Active alerts</span>
+            <div className="v">{metrics.alertCount}</div>
+            <div className="s">{metrics.alertCount > 0 ? 'Critical & high findings' : 'All clear'}</div>
+            <div className="blob" />
+          </div>
+          <div className="metric navy">
+            <span className="k">Unique domains</span>
+            <div className="v">{metrics.uniqueDomains}</div>
+            <div className="s">Monitored sites</div>
+            <div className="blob" />
+          </div>
+        </section>
+      )}
 
       {/* Two-up: trend + breakdown */}
       <section className="row-2">

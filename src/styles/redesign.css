@@ -88,7 +88,10 @@
   --bg-3: #F4F7FB;
   --ink-1: #1A2332;
   --ink-2: #4B5563;
-  --ink-3: #9CA3AF;
+  /* Muted text on light: bumped from gray-400 (#9CA3AF) to gray-500
+     (#6B7280) — gray-400 sat at ~3.3:1 against the bg-1 grey, which fails
+     AA for normal text. Sprint 10 QA pass. */
+  --ink-3: #6B7280;
   --line:   rgba(26,35,50,0.08);
   --line-2: rgba(26,35,50,0.14);
 
@@ -852,8 +855,35 @@
 .app-shell .nav-item:focus-visible,
 .app-shell .scan-row:focus-visible,
 .app-shell .qa:focus-visible,
-.app-shell .search-pill:focus-visible {
+.app-shell .search-pill:focus-visible,
+.app-shell a:focus-visible {
   outline: 2px solid var(--mint);
+  outline-offset: 2px;
+}
+
+/* Skip-to-content — invisible by default, visually pinned to the top-left
+   corner once focused. Keyboard / screen-reader users get to skip past the
+   sidebar and topbar in one tab. */
+.app-shell .skip-link {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 200;
+  padding: 8px 14px;
+  background: var(--mint);
+  color: var(--navy);
+  border-radius: 10px;
+  font-family: var(--font-redesign-display);
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+  transform: translateY(-200%);
+  transition: transform 0.18s ease;
+}
+.app-shell .skip-link:focus,
+.app-shell .skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--ink-1);
   outline-offset: 2px;
 }
 
