@@ -308,30 +308,124 @@ export default function ReportHub() {
     (reportType === 'executive-summary' && (!!selectedReport || !!selectedSession));
 
   const selectStyle: React.CSSProperties = {
-    padding: '8px 12px',
-    borderRadius: '8px',
-    border: '1px solid var(--color-border)',
-    background: 'var(--color-surface-alt)',
-    color: 'var(--color-text-primary)',
-    fontSize: '13px',
+    padding: '10px 14px',
+    borderRadius: 12,
+    border: '1px solid var(--line-2)',
+    background: 'var(--bg-2)',
+    color: 'var(--ink-1)',
+    fontSize: 13,
     outline: 'none',
     width: '100%',
+    fontFamily: 'inherit',
   };
 
-  return (
-    <div className="flex flex-col h-full overflow-auto">
-      <div className="p-8">
-        <span className="mono-tag mb-3 block">reports</span>
-        <div className="grid grid-cols-3 gap-6">
+  // Stats for the hero
+  const monthStart = new Date();
+  monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+  const scansThisMonth = safeReports.filter(r => new Date(r.startedAt) >= monthStart).length;
 
-          {/* Left panel — controls */}
-          <div className="space-y-5">
-            {/* Client scope — filters everything below */}
-            <div className="card-elevated p-5">
-              <h3 className="font-semibold text-sm mb-3 flex items-center gap-2" style={{ color: 'var(--color-text-primary)' }}>
-                <Users className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
-                Client
-              </h3>
+  return (
+    <div className="page">
+      {/* Hero */}
+      <section className="hero">
+        <div className="hero-l">
+          <span className="kicker">post_report · exports</span>
+          <h1 className="h-condensed title">
+            Branded reports<span className="u">_</span><br />on demand.
+          </h1>
+          <p className="sub">
+            Pick a client, pick a template, get a branded PDF that pairs scan findings with ISO 27001 compliance posture. Every export carries the client's logo and engagement metadata.
+          </p>
+          <div className="hero-stats">
+            <div className="hero-stat">
+              <div className="l">WP scans</div>
+              <div className="v">{safeReports.length}</div>
+            </div>
+            <div className="hero-stat">
+              <div className="l">Gap sessions</div>
+              <div className="v">{safeSessions.length}</div>
+            </div>
+            <div className="hero-stat">
+              <div className="l">Scans this month</div>
+              <div className="v">{scansThisMonth}</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleDownloadPdf}
+              disabled={!canDownload || downloading}
+              title={downloadError ?? (!canDownload ? 'Select data below to enable export' : 'Download a branded PDF of this report')}
+              style={!canDownload || downloading ? { opacity: 0.5, cursor: !canDownload ? 'not-allowed' : 'wait' } : undefined}
+            >
+              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              {downloading ? 'Generating PDF…' : 'Download PDF'}
+            </button>
+          </div>
+          {downloadError && (
+            <p style={{ fontSize: 11, color: 'var(--ember)', marginTop: 4, fontFamily: 'var(--font-redesign-mono)' }}>
+              {downloadError}
+            </p>
+          )}
+        </div>
+
+        {/* Right pane — current selection summary */}
+        <div className="gauge-wrap" style={{ alignItems: 'stretch' }}>
+          <div
+            style={{
+              padding: '20px 22px',
+              borderRadius: 22,
+              background: 'var(--glass-bg)',
+              border: '1px solid var(--glass-bd)',
+              backdropFilter: 'blur(20px)',
+              display: 'flex', flexDirection: 'column', gap: 12, minWidth: 260,
+            }}
+          >
+            <span className="kicker violet">selection</span>
+            <h3 style={{ margin: 0, fontFamily: 'var(--font-redesign-display)', fontSize: 18, fontWeight: 700, color: 'var(--ink-1)', letterSpacing: '-0.01em' }}>
+              {REPORT_TYPES.find(r => r.id === reportType)?.label}
+            </h3>
+            <div style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+              {REPORT_TYPES.find(r => r.id === reportType)?.description}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+              <KeyValue
+                k="Client"
+                v={clientScope === 'all' ? 'All clients' : (pickerClients.find(c => c.id === clientScope)?.name ?? 'Unknown')}
+              />
+              {(reportType === 'wp-security' || reportType === 'executive-summary') && (
+                <KeyValue
+                  k="WP scan"
+                  v={selectedReport ? `${selectedReport.domain} · ${selectedReport.score}/100` : '—'}
+                />
+              )}
+              {(reportType === 'compliance-status' || reportType === 'executive-summary') && (
+                <KeyValue
+                  k="Gap session"
+                  v={selectedSession?.name ?? '—'}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Controls + preview */}
+      <div className="grid grid-cols-3 gap-5">
+        {/* Left column — controls */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Client scope */}
+          <section className="bubble">
+            <div className="card-head">
+              <div>
+                <span className="kicker">scope</span>
+                <h3>Client</h3>
+                <div className="desc">Filters the WP-scan and gap-analysis pickers below.</div>
+              </div>
+              <Users className="w-4 h-4" style={{ color: 'var(--ink-3)' }} />
+            </div>
+            <div style={{ padding: '0 18px 18px' }}>
               <select
                 style={selectStyle}
                 value={clientScope}
@@ -346,53 +440,70 @@ export default function ReportHub() {
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
-              <p style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: 6, lineHeight: 1.4 }}>
-                Scopes the scan + gap analysis dropdowns below to this client's records.
-              </p>
             </div>
+          </section>
 
-            {/* Report type */}
-            <div className="card-elevated p-5">
-              <h3 className="font-semibold text-sm mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                Report type
-              </h3>
-              <div className="space-y-2">
-                {REPORT_TYPES.map(rt => (
+          {/* Report type */}
+          <section className="bubble">
+            <div className="card-head">
+              <div>
+                <span className="kicker">template</span>
+                <h3>Report type</h3>
+              </div>
+            </div>
+            <div style={{ padding: '0 18px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {REPORT_TYPES.map(rt => {
+                const active = reportType === rt.id;
+                return (
                   <button
                     key={rt.id}
+                    type="button"
                     onClick={() => setReportType(rt.id)}
-                    className="w-full text-left p-3 rounded-xl transition-all"
                     style={{
-                      background: reportType === rt.id ? 'var(--color-mint-subtle)' : 'var(--color-surface-alt)',
-                      border: `1px solid ${reportType === rt.id ? 'rgba(0,122,94,0.45)' : 'var(--color-border)'}`,
+                      width: '100%', textAlign: 'left',
+                      padding: 12,
+                      borderRadius: 14,
+                      background: active
+                        ? 'color-mix(in oklab, var(--mint) 16%, transparent)'
+                        : 'color-mix(in oklab, var(--bg-2) 50%, transparent)',
+                      border: active
+                        ? '1px solid color-mix(in oklab, var(--mint) 50%, transparent)'
+                        : '1px solid var(--line)',
+                      cursor: 'pointer',
+                      color: 'inherit',
+                      fontFamily: 'inherit',
                     }}
+                    aria-pressed={active}
                   >
-                    <div className="flex items-start gap-2">
-                      <span style={{ fontSize: '16px' }}>{rt.icon}</span>
-                      <div>
-                        {/* Pale-mint background is constant across themes, so we always
-                            use the darker accent ink (#007A5E) + navy description for WCAG AA. */}
-                        <div style={{ fontSize: '12px', fontWeight: 700, color: reportType === rt.id ? '#007A5E' : 'var(--color-text-primary)', marginBottom: 2 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                      <span style={{ fontSize: 18, lineHeight: 1 }} aria-hidden>{rt.icon}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: active ? 'var(--mint)' : 'var(--ink-1)', marginBottom: 2 }}>
                           {rt.label}
                         </div>
-                        <div style={{ fontSize: '11px', color: reportType === rt.id ? '#1A2332' : 'var(--color-text-muted)', lineHeight: 1.3 }}>
+                        <div style={{ fontSize: 11, color: 'var(--ink-3)', lineHeight: 1.4 }}>
                           {rt.description}
                         </div>
                       </div>
                     </div>
                   </button>
-                ))}
-              </div>
+                );
+              })}
             </div>
+          </section>
 
-            {/* Data source selectors */}
-            {(reportType === 'wp-security' || reportType === 'executive-summary') && (
-              <div className="card-elevated p-5">
-                <h3 className="font-semibold text-sm mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                  WP scan
-                </h3>
+          {/* Data source selectors */}
+          {(reportType === 'wp-security' || reportType === 'executive-summary') && (
+            <section className="bubble">
+              <div className="card-head">
+                <div>
+                  <span className="kicker">data</span>
+                  <h3>WP scan</h3>
+                </div>
+              </div>
+              <div style={{ padding: '0 18px 18px' }}>
                 {sortedReports.length === 0 ? (
-                  <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', fontFamily: '"JetBrains Mono", monospace' }}>
+                  <p style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>
                     // No scans yet
                   </p>
                 ) : (
@@ -409,15 +520,20 @@ export default function ReportHub() {
                   </select>
                 )}
               </div>
-            )}
+            </section>
+          )}
 
-            {(reportType === 'compliance-status' || reportType === 'executive-summary') && (
-              <div className="card-elevated p-5">
-                <h3 className="font-semibold text-sm mb-3" style={{ color: 'var(--color-text-primary)' }}>
-                  Gap analysis
-                </h3>
+          {(reportType === 'compliance-status' || reportType === 'executive-summary') && (
+            <section className="bubble">
+              <div className="card-head">
+                <div>
+                  <span className="kicker">data</span>
+                  <h3>Gap analysis</h3>
+                </div>
+              </div>
+              <div style={{ padding: '0 18px 18px' }}>
                 {sortedSessions.length === 0 ? (
-                  <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', fontFamily: '"JetBrains Mono", monospace' }}>
+                  <p style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>
                     // No gap analysis yet
                   </p>
                 ) : (
@@ -434,56 +550,21 @@ export default function ReportHub() {
                   </select>
                 )}
               </div>
-            )}
+            </section>
+          )}
+        </div>
 
-            {/* Download PDF — generates via @react-pdf/renderer (lazy-loaded).
-                Disabled when the underlying data isn't ready (no scan / no
-                gap analysis) so we never produce an empty document. */}
-            <button
-              onClick={handleDownloadPdf}
-              disabled={!canDownload || downloading}
-              title={
-                downloadError ?? (
-                  !canDownload ? 'Select data in the dropdowns above to enable export' :
-                  'Download a branded PDF of this report'
-                )
-              }
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ background: canDownload ? '#00D9A3' : 'var(--color-surface-alt)', color: canDownload ? '#1A2332' : 'var(--color-text-muted)', border: canDownload ? 'none' : '1px dashed var(--color-border)' }}
-              onMouseEnter={e => { if (canDownload && !downloading) (e.currentTarget as HTMLElement).style.background = '#00B589'; }}
-              onMouseLeave={e => { if (canDownload && !downloading) (e.currentTarget as HTMLElement).style.background = '#00D9A3'; }}
-            >
-              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              {downloading ? 'Generating PDF…' : 'Download PDF'}
-            </button>
-            {downloadError && (
-              <p style={{ fontSize: '11px', color: 'var(--color-status-red, #DC2626)', marginTop: 6 }}>
-                {downloadError}
-              </p>
-            )}
-          </div>
-
-          {/* Right panel — preview */}
-          <div className="col-span-2">
-            <div className="card-elevated p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                  Preview
-                </h3>
-                <span
-                  style={{
-                    fontFamily: '"JetBrains Mono", monospace',
-                    fontSize: '9px',
-                    color: '#007A5E',
-                    background: 'var(--color-mint-subtle)',
-                    borderRadius: '3px',
-                    padding: '1px 6px',
-                  }}
-                >
-                  post_report
-                </span>
+        {/* Right column — preview */}
+        <div className="col-span-2">
+          <section className="bubble">
+            <div className="card-head">
+              <div>
+                <span className="kicker">preview</span>
+                <h3>What you'll get</h3>
               </div>
-
+              <span className="tag-mod">post_report</span>
+            </div>
+            <div style={{ padding: '0 22px 22px' }}>
               {reportType === 'wp-security' && (
                 selectedReport
                   ? <WpSecurityPreview report={selectedReport} clientName={clientNameFor(selectedReport.clientId)} />
@@ -498,10 +579,18 @@ export default function ReportHub() {
                 <ExecutiveSummaryPreview report={selectedReport} session={selectedSession} />
               )}
             </div>
-          </div>
+          </section>
         </div>
       </div>
+    </div>
+  );
+}
 
+function KeyValue({ k, v }: { k: string; v: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '6px 0', borderBottom: '1px dashed var(--line)' }}>
+      <span style={{ fontSize: 10, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{k}</span>
+      <span style={{ fontSize: 12, color: 'var(--ink-1)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }} title={v}>{v}</span>
     </div>
   );
 }
