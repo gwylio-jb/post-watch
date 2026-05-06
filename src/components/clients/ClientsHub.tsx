@@ -7,6 +7,10 @@
  *
  * Storage: localStorage key `clients` (prefixed to `clause-control:clients`
  * by useLocalStorage).
+ *
+ * Sprint 10 redesign: page wrapped in .page > .hero + .bubble shell.
+ * Card grid keeps client cards but on the new glass surface; modal form
+ * uses redesign tokens. Existing CRUD logic is unchanged.
  */
 
 import { useState, useMemo } from 'react';
@@ -39,6 +43,42 @@ interface ClientFormProps {
   initial?: Client;
   onSave: (client: Client) => void;
   onClose: () => void;
+}
+
+const formInputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '8px 12px',
+  borderRadius: 10,
+  border: '1px solid var(--line-2)',
+  background: 'var(--bg-2)',
+  color: 'var(--ink-1)',
+  fontSize: 13,
+  outline: 'none',
+  fontFamily: 'inherit',
+  boxSizing: 'border-box',
+};
+
+const formLabelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: 11,
+  fontWeight: 600,
+  color: 'var(--ink-3)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.08em',
+  fontFamily: 'var(--font-redesign-mono)',
+  marginBottom: 6,
+};
+
+function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div>
+      <label style={formLabelStyle}>
+        {label}
+        {required && <span style={{ color: 'var(--ember)', marginLeft: 4 }}>*</span>}
+      </label>
+      {children}
+    </div>
+  );
 }
 
 function ClientForm({ initial, onSave, onClose }: ClientFormProps) {
@@ -84,57 +124,59 @@ function ClientForm({ initial, onSave, onClose }: ClientFormProps) {
       onClick={onClose}
     >
       <form
-        className="rounded-2xl overflow-hidden w-full max-w-lg"
+        className="bubble"
         style={{
-          background: 'var(--color-surface)',
-          border: '1px solid var(--color-border)',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+          width: '100%', maxWidth: 520,
           maxHeight: '85vh',
-          display: 'flex',
-          flexDirection: 'column',
+          display: 'flex', flexDirection: 'column',
         }}
         onClick={e => e.stopPropagation()}
         onSubmit={handleSubmit}
       >
-        <div className="flex items-start justify-between p-6" style={{ borderBottom: '1px solid var(--color-border)' }}>
-          <h2 className="font-display font-bold text-xl" style={{ color: 'var(--color-text-primary)' }}>
-            {initial ? 'Edit client' : 'Add client'}
-          </h2>
+        <div className="card-head">
+          <div>
+            <span className="kicker">{initial ? 'edit client' : 'new client'}</span>
+            <h3>{initial ? 'Edit client' : 'Add client'}</h3>
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg transition-colors"
-            style={{ color: 'var(--color-text-muted)' }}
             aria-label="Close"
+            style={{ padding: 6, borderRadius: 8, color: 'var(--ink-3)', background: 'transparent', border: 0, cursor: 'pointer' }}
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 22px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Logo */}
           <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-              Logo (optional, max 512 KB)
-            </label>
-            <div className="flex items-center gap-3">
+            <label style={formLabelStyle}>Logo (optional, max 512 KB)</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div
-                className="w-16 h-16 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0"
-                style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)' }}
+                style={{
+                  width: 64, height: 64, borderRadius: 14,
+                  display: 'grid', placeItems: 'center',
+                  overflow: 'hidden', flexShrink: 0,
+                  background: 'var(--bg-2)', border: '1px solid var(--line-2)',
+                }}
               >
                 {logo ? (
-                  <img src={logo} alt="" className="w-full h-full object-contain" />
+                  <img src={logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 ) : (
-                  <ImageIcon className="w-5 h-5" style={{ color: 'var(--color-text-muted)' }} />
+                  <ImageIcon className="w-5 h-5" style={{ color: 'var(--ink-3)' }} />
                 )}
               </div>
-              <div className="flex-1">
+              <div style={{ flex: 1 }}>
                 <label
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors"
                   style={{
-                    background: 'var(--color-surface-alt)',
-                    border: '1px solid var(--color-border)',
-                    color: 'var(--color-text-secondary)',
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    padding: '6px 12px', borderRadius: 10,
+                    fontSize: 12, fontWeight: 500,
+                    cursor: 'pointer',
+                    background: 'var(--bg-2)',
+                    border: '1px solid var(--line-2)',
+                    color: 'var(--ink-2)',
                   }}
                 >
                   {logo ? 'Replace logo' : 'Upload logo'}
@@ -142,21 +184,20 @@ function ClientForm({ initial, onSave, onClose }: ClientFormProps) {
                     type="file"
                     accept="image/png,image/jpeg,image/svg+xml"
                     onChange={handleLogoChange}
-                    className="hidden"
+                    style={{ display: 'none' }}
                   />
                 </label>
                 {logo && (
                   <button
                     type="button"
                     onClick={() => setLogo(undefined)}
-                    className="ml-2 text-xs"
-                    style={{ color: 'var(--color-text-muted)' }}
+                    style={{ marginLeft: 8, fontSize: 11, color: 'var(--ink-3)', background: 'transparent', border: 0, cursor: 'pointer' }}
                   >
                     Remove
                   </button>
                 )}
                 {logoError && (
-                  <div className="text-xs mt-1" style={{ color: 'var(--color-status-red)' }}>
+                  <div style={{ fontSize: 11, marginTop: 4, color: 'var(--ember)', fontFamily: 'var(--font-redesign-mono)' }}>
                     {logoError}
                   </div>
                 )}
@@ -164,7 +205,6 @@ function ClientForm({ initial, onSave, onClose }: ClientFormProps) {
             </div>
           </div>
 
-          {/* Name */}
           <Field label="Client name" required>
             <input
               type="text"
@@ -173,8 +213,7 @@ function ClientForm({ initial, onSave, onClose }: ClientFormProps) {
               placeholder="e.g. Acme Corp"
               required
               autoFocus
-              className="w-full px-3 py-2 rounded-lg text-sm"
-              style={inputStyle}
+              style={formInputStyle}
             />
           </Field>
 
@@ -184,8 +223,7 @@ function ClientForm({ initial, onSave, onClose }: ClientFormProps) {
               value={industry}
               onChange={e => setIndustry(e.target.value)}
               placeholder="e.g. E-commerce, SaaS, Legal"
-              className="w-full px-3 py-2 rounded-lg text-sm"
-              style={inputStyle}
+              style={formInputStyle}
             />
           </Field>
 
@@ -195,8 +233,7 @@ function ClientForm({ initial, onSave, onClose }: ClientFormProps) {
               value={primaryContact}
               onChange={e => setPrimaryContact(e.target.value)}
               placeholder="Name + email or phone"
-              className="w-full px-3 py-2 rounded-lg text-sm"
-              style={inputStyle}
+              style={formInputStyle}
             />
           </Field>
 
@@ -206,58 +243,20 @@ function ClientForm({ initial, onSave, onClose }: ClientFormProps) {
               onChange={e => setNotes(e.target.value)}
               placeholder="Engagement scope, access details, anything worth remembering."
               rows={3}
-              className="w-full px-3 py-2 rounded-lg text-sm resize-y"
-              style={inputStyle}
+              style={{ ...formInputStyle, resize: 'vertical', minHeight: 72 }}
             />
           </Field>
         </div>
 
-        <div
-          className="flex items-center justify-end gap-2 px-6 py-4"
-          style={{ borderTop: '1px solid var(--color-border)', background: 'var(--color-surface-alt)' }}
-        >
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg text-sm font-medium"
-            style={{
-              background: 'var(--color-surface)',
-              border: '1px solid var(--color-border)',
-              color: 'var(--color-text-secondary)',
-            }}
-          >
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '14px 22px', borderTop: '1px dashed var(--line-2)' }}>
+          <button type="button" onClick={onClose} className="btn btn-ghost" style={{ padding: '8px 16px' }}>
             Cancel
           </button>
-          <button
-            type="submit"
-            disabled={!name.trim()}
-            className="px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
-            style={{ background: 'var(--color-accent)', color: '#1A2332', border: 'none' }}
-          >
+          <button type="submit" disabled={!name.trim()} className="btn btn-primary" style={{ padding: '8px 16px' }}>
             {initial ? 'Save changes' : 'Add client'}
           </button>
         </div>
       </form>
-    </div>
-  );
-}
-
-const inputStyle: React.CSSProperties = {
-  background: 'var(--color-surface-alt)',
-  border: '1px solid var(--color-border)',
-  color: 'var(--color-text-primary)',
-  outline: 'none',
-  fontFamily: 'var(--font-body)',
-};
-
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
-        {label}
-        {required && <span style={{ color: 'var(--color-status-red)', marginLeft: 4 }}>*</span>}
-      </label>
-      {children}
     </div>
   );
 }
@@ -300,59 +299,112 @@ export default function ClientsHub() {
     setClients(list.filter(c => c.id !== id));
   };
 
-  return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Header row */}
-      <div className="px-8 pt-6 pb-4 flex items-center gap-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
-        <div className="flex-1 relative">
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
-            style={{ color: 'var(--color-text-muted)' }}
-          />
-          <input
-            type="text"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search clients…"
-            className="w-full pl-10 pr-3 py-2 rounded-xl text-sm"
-            style={{
-              background: 'var(--color-surface-alt)',
-              border: '1px solid var(--color-border)',
-              color: 'var(--color-text-primary)',
-              outline: 'none',
-            }}
-          />
-        </div>
-        <button
-          onClick={() => { setEditing(null); setFormOpen(true); }}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-          style={{ background: 'var(--color-accent)', color: '#1A2332', border: 'none' }}
-        >
-          <Plus className="w-4 h-4" /> Add client
-        </button>
-      </div>
+  const stats = useMemo(() => {
+    const monthStart = new Date();
+    monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+    const newThisMonth = list.filter(c => new Date(c.createdAt) >= monthStart).length;
+    const withLogo = list.filter(c => !!c.logo).length;
+    return { total: list.length, newThisMonth, withLogo };
+  }, [list]);
 
-      {/* List / empty state */}
-      <div className="flex-1 overflow-y-auto p-8">
-        {list.length === 0 ? (
-          <EmptyState onAdd={() => { setEditing(null); setFormOpen(true); }} />
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-12 text-sm" style={{ color: 'var(--color-text-muted)' }}>
-            No clients match "{query}".
+  return (
+    <div className="page">
+      {/* Hero */}
+      <section className="hero">
+        <div className="hero-l">
+          <span className="kicker">post_clients · directory</span>
+          <h1 className="h-condensed title">
+            Your clients<span className="u">_</span><br />in one place.
+          </h1>
+          <p className="sub">
+            Every scan, audit and risk file links back to the client engagement here. Logos uploaded once flow through to every branded report.
+          </p>
+          <div className="hero-stats">
+            <div className="hero-stat">
+              <div className="l">Total</div>
+              <div className="v">{stats.total}</div>
+            </div>
+            <div className="hero-stat">
+              <div className="l">New this month</div>
+              <div className="v">{stats.newThisMonth}</div>
+            </div>
+            <div className="hero-stat">
+              <div className="l">With logo</div>
+              <div className="v">{stats.withLogo}<small> / {stats.total || 0}</small></div>
+            </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map(client => (
-              <ClientCard
-                key={client.id}
-                client={client}
-                onEdit={() => { setEditing(client); setFormOpen(true); }}
-                onDelete={() => handleDelete(client.id)}
+          <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+            <button type="button" className="btn btn-primary" onClick={() => { setEditing(null); setFormOpen(true); }}>
+              <Plus className="w-4 h-4" /> Add client
+            </button>
+          </div>
+        </div>
+
+        {/* Right pane — quick search */}
+        <div className="gauge-wrap" style={{ alignItems: 'stretch' }}>
+          <div
+            style={{
+              padding: '20px 22px',
+              borderRadius: 22,
+              background: 'var(--glass-bg)',
+              border: '1px solid var(--glass-bd)',
+              backdropFilter: 'blur(20px)',
+              display: 'flex', flexDirection: 'column', gap: 14, justifyContent: 'center',
+              minWidth: 260,
+            }}
+          >
+            <span className="kicker violet">find</span>
+            <h3 style={{ margin: 0, fontFamily: 'var(--font-redesign-display)', fontSize: 18, fontWeight: 700, color: 'var(--ink-1)', letterSpacing: '-0.01em' }}>
+              Search the roster
+            </h3>
+            <div style={{ position: 'relative' }}>
+              <Search className="w-4 h-4" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-3)', pointerEvents: 'none' }} />
+              <input
+                type="text"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Name, industry, contact, notes…"
+                style={{
+                  width: '100%', padding: '10px 14px 10px 36px',
+                  borderRadius: 12,
+                  border: '1px solid var(--line-2)',
+                  background: 'var(--bg-2)',
+                  color: 'var(--ink-1)',
+                  fontSize: 13,
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                  boxSizing: 'border-box',
+                }}
               />
-            ))}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>
+              {query.trim()
+                ? `${filtered.length} match${filtered.length === 1 ? '' : 'es'}`
+                : `${stats.total} client${stats.total === 1 ? '' : 's'} on file`}
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      </section>
+
+      {/* Card grid */}
+      {list.length === 0 ? (
+        <EmptyState onAdd={() => { setEditing(null); setFormOpen(true); }} />
+      ) : filtered.length === 0 ? (
+        <div className="bubble" style={{ padding: 36, textAlign: 'center', color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)', fontSize: 12 }}>
+          // No clients match "{query}".
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map(client => (
+            <ClientCard
+              key={client.id}
+              client={client}
+              onEdit={() => { setEditing(client); setFormOpen(true); }}
+              onDelete={() => handleDelete(client.id)}
+            />
+          ))}
+        </div>
+      )}
 
       {formOpen && (
         <ClientForm
@@ -369,24 +421,35 @@ export default function ClientsHub() {
 
 function ClientCard({ client, onEdit, onDelete }: { client: Client; onEdit: () => void; onDelete: () => void }) {
   return (
-    <div className="card-tile p-5 flex flex-col gap-3">
-      <div className="flex items-start gap-3">
+    <div
+      className="bubble"
+      style={{
+        padding: 18,
+        display: 'flex', flexDirection: 'column', gap: 12,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         <div
-          className="w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0"
-          style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)' }}
+          style={{
+            width: 48, height: 48, borderRadius: 12,
+            display: 'grid', placeItems: 'center', overflow: 'hidden',
+            flexShrink: 0,
+            background: 'var(--bg-2)',
+            border: '1px solid var(--line-2)',
+          }}
         >
           {client.logo ? (
-            <img src={client.logo} alt="" className="w-full h-full object-contain" />
+            <img src={client.logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           ) : (
-            <Building2 className="w-5 h-5" style={{ color: 'var(--color-text-accent)' }} />
+            <Building2 className="w-5 h-5" style={{ color: 'var(--mint)' }} />
           )}
         </div>
-        <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-sm truncate" style={{ color: 'var(--color-text-primary)' }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <h3 style={{ margin: 0, fontWeight: 600, fontSize: 14, color: 'var(--ink-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {client.name}
           </h3>
           {client.industry && (
-            <p className="text-xs truncate" style={{ color: 'var(--color-text-muted)' }}>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {client.industry}
             </p>
           )}
@@ -394,42 +457,53 @@ function ClientCard({ client, onEdit, onDelete }: { client: Client; onEdit: () =
       </div>
 
       {client.primaryContact && (
-        <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-          <span style={{ color: 'var(--color-text-muted)' }}>Contact: </span>
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--ink-2)' }}>
+          <span style={{ color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: 6 }}>contact</span>
           {client.primaryContact}
         </p>
       )}
 
       {client.notes && (
         <p
-          className="text-xs line-clamp-2"
-          style={{ color: 'var(--color-text-muted)', lineHeight: 1.5 }}
+          style={{
+            margin: 0, fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.5,
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          }}
         >
           {client.notes}
         </p>
       )}
 
-      <div className="flex items-center gap-2 pt-2 mt-auto" style={{ borderTop: '1px solid var(--color-border)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 10, marginTop: 'auto', borderTop: '1px dashed var(--line-2)' }}>
         <button
+          type="button"
           onClick={onEdit}
-          className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-colors"
           style={{
-            background: 'var(--color-surface-alt)',
-            border: '1px solid var(--color-border)',
-            color: 'var(--color-text-secondary)',
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+            padding: '6px 10px',
+            borderRadius: 10,
+            fontSize: 12, fontWeight: 500,
+            background: 'var(--bg-2)',
+            border: '1px solid var(--line-2)',
+            color: 'var(--ink-2)',
+            cursor: 'pointer',
+            fontFamily: 'inherit',
           }}
         >
           <Pencil className="w-3 h-3" /> Edit
         </button>
         <button
+          type="button"
           onClick={onDelete}
-          className="p-1.5 rounded-lg transition-colors"
+          aria-label={`Delete ${client.name}`}
           style={{
-            background: 'var(--color-surface-alt)',
-            border: '1px solid var(--color-border)',
-            color: 'var(--color-status-red)',
+            padding: 6, borderRadius: 10,
+            background: 'var(--bg-2)',
+            border: '1px solid var(--line-2)',
+            color: 'var(--ember)',
+            cursor: 'pointer',
+            display: 'grid', placeItems: 'center',
           }}
-          aria-label="Delete client"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
@@ -440,25 +514,24 @@ function ClientCard({ client, onEdit, onDelete }: { client: Client; onEdit: () =
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center text-center py-20">
+    <div className="bubble" style={{ padding: '48px 24px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
       <div
-        className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-        style={{ background: 'var(--color-accent-soft)', border: '1px solid var(--color-border)' }}
+        style={{
+          width: 64, height: 64, borderRadius: 16,
+          display: 'grid', placeItems: 'center',
+          background: 'color-mix(in oklab, var(--mint) 15%, transparent)',
+          border: '1px solid color-mix(in oklab, var(--mint) 30%, transparent)',
+        }}
       >
-        <Building2 className="w-7 h-7" style={{ color: 'var(--color-text-accent)' }} />
+        <Building2 className="w-7 h-7" style={{ color: 'var(--mint)' }} />
       </div>
-      <h3 className="font-display font-bold text-lg mb-1" style={{ color: 'var(--color-text-primary)' }}>
+      <h3 style={{ margin: 0, fontFamily: 'var(--font-redesign-display)', fontSize: 18, fontWeight: 700, color: 'var(--ink-1)', letterSpacing: '-0.01em' }}>
         No clients yet
       </h3>
-      <p className="text-sm max-w-md mb-6" style={{ color: 'var(--color-text-muted)' }}>
-        Add your first client to start grouping scans, risks and audits by engagement. You can add a logo
-        that will appear on their branded reports.
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-2)', maxWidth: 420, lineHeight: 1.5 }}>
+        Add your first client to start grouping scans, risks and audits by engagement. Logos uploaded here flow into every branded report.
       </p>
-      <button
-        onClick={onAdd}
-        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
-        style={{ background: 'var(--color-accent)', color: '#1A2332', border: 'none' }}
-      >
+      <button type="button" onClick={onAdd} className="btn btn-primary" style={{ marginTop: 4 }}>
         <Plus className="w-4 h-4" /> Add your first client
       </button>
     </div>
