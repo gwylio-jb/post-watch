@@ -107,6 +107,13 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
   useEffect(() => { setAiDraft(aiStored); }, [aiStored]);
   // Probe Ollama on mount + whenever the base URL changes.
   useEffect(() => { refreshOllama(); }, [refreshOllama]);
+  // Escape closes the modal — modal is portal'd, so this listener catches all
+  // keypresses while the panel is mounted.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   const updateDraft = (key: ProviderKey, value: string) => {
     setDraft(prev => ({ ...prev, [key]: value }));
@@ -154,94 +161,110 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
   // window, and you lose the top half of the panel off-screen at large
   // window sizes. Belt-and-braces: we also want the bigger sibling overlay
   // (the dimmed backdrop) to genuinely cover the viewport.
+  // Reusable styling for the inner provider blocks — glass-on-glass against
+  // the modal's bubble surface, with redesign tokens throughout.
+  const innerBlockStyle: React.CSSProperties = {
+    padding: 16,
+    borderRadius: 16,
+    background: 'color-mix(in oklab, var(--bg-2) 50%, transparent)',
+    border: '1px solid var(--line)',
+  };
+  const innerInputStyle: React.CSSProperties = {
+    flex: 1,
+    padding: '8px 12px',
+    borderRadius: 10,
+    border: '1px solid var(--line-2)',
+    background: 'var(--bg-2)',
+    color: 'var(--ink-1)',
+    fontSize: 13,
+    outline: 'none',
+    fontFamily: 'var(--font-redesign-mono)',
+  };
+  const innerIconBtnStyle: React.CSSProperties = {
+    padding: 8,
+    borderRadius: 10,
+    background: 'var(--bg-2)',
+    border: '1px solid var(--line-2)',
+    color: 'var(--ink-3)',
+    cursor: 'pointer',
+    display: 'grid', placeItems: 'center',
+  };
+
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-6"
       style={{ background: 'rgba(10,14,21,0.78)', backdropFilter: 'blur(6px)' }}
       onClick={onClose}
+      role="presentation"
     >
       <div
-        className="rounded-2xl overflow-hidden w-full max-w-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-panel-title"
+        className="bubble"
         style={{
-          background: 'var(--color-surface)',
-          border: '1px solid var(--color-border)',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+          width: '100%', maxWidth: 640,
           maxHeight: '85vh',
-          display: 'flex',
-          flexDirection: 'column',
+          display: 'flex', flexDirection: 'column',
         }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between p-6" style={{ borderBottom: '1px solid var(--color-border)' }}>
+        <div className="card-head">
           <div>
-            <h2 className="font-display font-bold text-xl" style={{ color: 'var(--color-text-primary)' }}>
-              Settings
-            </h2>
-            <p className="text-sm mt-1" style={{ color: 'var(--color-text-muted)' }}>
-              API keys for the WP scanner ({configuredCount}/{API_KEY_PROVIDERS.length}) and local AI for the assist features.
-            </p>
+            <span className="kicker">settings</span>
+            <h3 id="settings-panel-title">Integrations &amp; AI</h3>
+            <div className="desc">
+              {configuredCount}/{API_KEY_PROVIDERS.length} API keys configured · local Ollama for AI assist features.
+            </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-lg transition-colors"
-            style={{ color: 'var(--color-text-muted)' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-alt)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = ''; }}
             aria-label="Close"
+            style={{ padding: 6, borderRadius: 8, color: 'var(--ink-3)', background: 'transparent', border: 0, cursor: 'pointer' }}
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 22px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
           {/* ── Local AI (Ollama) ─────────────────────────────────────────── */}
-          <div
-            className="rounded-xl p-4"
-            style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)' }}
-          >
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4" style={{ color: '#00D9A3' }} />
-                  <span className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>
+          <div style={innerBlockStyle}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Sparkles className="w-4 h-4" style={{ color: 'var(--mint)' }} />
+                  <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink-1)' }}>
                     Local AI (Ollama)
                   </span>
-                  {/* Status pill — colour-coded by reachability */}
                   {ollamaStatus === 'reachable' && (
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                      style={{ background: 'var(--color-accent-soft)', color: 'var(--color-text-accent)' }}>
-                      Detected
+                    <span className="pill mint" style={{ fontSize: 10, padding: '2px 8px' }}>
+                      <span className="dot" style={{ background: 'var(--mint)' }} />Detected
                     </span>
                   )}
                   {ollamaStatus === 'unreachable' && (
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                      style={{ background: 'rgba(220,38,38,0.12)', color: '#DC2626' }}>
-                      Not running
+                    <span className="pill ember" style={{ fontSize: 10, padding: '2px 8px' }}>
+                      <span className="dot" style={{ background: 'var(--ember)' }} />Not running
                     </span>
                   )}
                   {ollamaStatus === 'checking' && (
-                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                      style={{ background: 'var(--color-surface)', color: 'var(--color-text-muted)' }}>
-                      Checking…
+                    <span className="pill muted" style={{ fontSize: 10, padding: '2px 8px' }}>
+                      <span className="dot" style={{ background: 'var(--ink-3)' }} />Checking…
                     </span>
                   )}
                 </div>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                <p style={{ fontSize: 11, marginTop: 4, color: 'var(--ink-3)', lineHeight: 1.5 }}>
                   Powers Explain-to-client, Draft-commentary and Generate-fix. Runs locally — no client data leaves this device.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => openExternal('https://ollama.com/download')}
-                className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors flex-shrink-0"
-                style={{
-                  color: 'var(--color-text-accent)',
-                  border: '1px solid var(--color-border)',
-                  background: 'var(--color-surface)',
-                }}
+                className="btn btn-ghost"
+                style={{ fontSize: 11, padding: '6px 10px', flexShrink: 0 }}
               >
                 Get Ollama <ExternalLink className="w-3 h-3" />
               </button>
@@ -249,35 +272,28 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
 
             {/* Unreachable: install / start instructions */}
             {ollamaStatus === 'unreachable' && (
-              <div
-                className="flex items-start gap-2 p-3 rounded-lg mb-3"
-                style={{ background: 'var(--color-surface)', border: '1px dashed var(--color-border)' }}
-              >
-                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--color-text-muted)' }} />
-                <div className="text-xs" style={{ color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-                  <p>Ollama isn't running. Install it from <span style={{ color: 'var(--color-text-accent)' }}>ollama.com</span>, open the app (or run <code className="font-mono" style={{ background: 'var(--color-surface-alt)', padding: '1px 4px', borderRadius: 3 }}>ollama serve</code>), then click <em>Re-check</em>.</p>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: 12, borderRadius: 12, background: 'var(--bg-2)', border: '1px dashed var(--line-2)', marginBottom: 12 }}>
+                <AlertCircle className="w-4 h-4" style={{ color: 'var(--ink-3)', marginTop: 2, flexShrink: 0 }} />
+                <div style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+                  Ollama isn't running. Install it from <span style={{ color: 'var(--mint)' }}>ollama.com</span>, open the app (or run <code style={{ fontFamily: 'var(--font-redesign-mono)', background: 'color-mix(in oklab, var(--bg-2) 50%, transparent)', padding: '1px 6px', borderRadius: 4 }}>ollama serve</code>), then click <em>Re-check</em>.
                 </div>
               </div>
             )}
 
             {/* Reachable but no models installed */}
             {ollamaStatus === 'reachable' && installedModels.length === 0 && (
-              <div
-                className="flex items-start gap-2 p-3 rounded-lg mb-3"
-                style={{ background: 'var(--color-surface)', border: '1px dashed var(--color-border)' }}
-              >
-                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--color-text-muted)' }} />
-                <div className="text-xs flex-1" style={{ color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-                  <p className="mb-1.5">No models installed yet. Pull the recommended one (≈2GB):</p>
-                  <div className="flex items-center gap-1.5">
-                    <code className="flex-1 font-mono text-[11px]" style={{ background: 'var(--color-surface-alt)', padding: '4px 8px', borderRadius: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: 12, borderRadius: 12, background: 'var(--bg-2)', border: '1px dashed var(--line-2)', marginBottom: 12 }}>
+                <AlertCircle className="w-4 h-4" style={{ color: 'var(--ink-3)', marginTop: 2, flexShrink: 0 }} />
+                <div style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.5, flex: 1 }}>
+                  <p style={{ margin: '0 0 6px' }}>No models installed yet. Pull the recommended one (≈2 GB):</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <code style={{ flex: 1, fontFamily: 'var(--font-redesign-mono)', fontSize: 11, background: 'color-mix(in oklab, var(--bg-2) 50%, transparent)', padding: '6px 10px', borderRadius: 6, color: 'var(--ink-1)' }}>
                       ollama pull {RECOMMENDED_MODEL}
                     </code>
                     <button
                       type="button"
                       onClick={copyPullCmd}
-                      className="p-1 rounded"
-                      style={{ background: 'var(--color-surface-alt)', color: 'var(--color-text-muted)' }}
+                      style={{ ...innerIconBtnStyle, padding: 6 }}
                       aria-label="Copy command"
                     >
                       {pullCmdCopied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
@@ -289,18 +305,12 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
 
             {/* Reachable + models installed: model picker */}
             {ollamaStatus === 'reachable' && installedModels.length > 0 && (
-              <div className="flex items-center gap-2">
-                <label className="text-[11px] font-mono" style={{ color: 'var(--color-text-muted)' }}>Model</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <label style={{ fontSize: 11, fontFamily: 'var(--font-redesign-mono)', color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Model</label>
                 <select
                   value={aiDraft.model ?? ''}
                   onChange={e => setAiDraft(prev => ({ ...prev, model: e.target.value || undefined }))}
-                  className="flex-1 px-3 py-2 rounded-lg text-sm"
-                  style={{
-                    background: 'var(--color-surface)',
-                    border: '1px solid var(--color-border)',
-                    color: 'var(--color-text-primary)',
-                    outline: 'none',
-                  }}
+                  style={{ ...innerInputStyle, fontFamily: 'inherit' }}
                 >
                   <option value="">— Select a model —</option>
                   {installedModels.map(m => (
@@ -313,12 +323,8 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
             <button
               type="button"
               onClick={refreshOllama}
-              className="flex items-center gap-1 text-[11px] mt-3 px-2 py-1 rounded transition-colors"
-              style={{
-                color: 'var(--color-text-muted)',
-                border: '1px solid var(--color-border)',
-                background: 'var(--color-surface)',
-              }}
+              className="btn btn-ghost"
+              style={{ fontSize: 11, padding: '5px 10px', marginTop: 12 }}
             >
               <RefreshCw className={`w-3 h-3 ${ollamaStatus === 'checking' ? 'animate-spin' : ''}`} />
               Re-check
@@ -331,71 +337,46 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
             const isRevealed = revealed.has(p.key);
             const isSet = !!value.trim();
             return (
-              <div
-                key={p.key}
-                className="rounded-xl p-4"
-                style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)' }}
-              >
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>
-                        {p.name}
-                      </span>
+              <div key={p.key} style={innerBlockStyle}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink-1)' }}>{p.name}</span>
                       {isSet && (
-                        <span
-                          className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                          style={{ background: 'var(--color-accent-soft)', color: 'var(--color-text-accent)' }}
-                        >
-                          Configured
+                        <span className="pill mint" style={{ fontSize: 10, padding: '2px 8px' }}>
+                          <span className="dot" style={{ background: 'var(--mint)' }} />Configured
                         </span>
                       )}
                     </div>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                    <p style={{ fontSize: 11, marginTop: 4, color: 'var(--ink-3)', lineHeight: 1.5 }}>
                       {p.description}
                     </p>
-                    <p className="text-[10px] mt-1" style={{ color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
+                    <p style={{ fontSize: 10, marginTop: 4, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>
                       {p.freeTier}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => openExternal(p.getKeyUrl)}
-                    className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors flex-shrink-0"
-                    style={{
-                      color: 'var(--color-text-accent)',
-                      border: '1px solid var(--color-border)',
-                      background: 'var(--color-surface)',
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--color-accent-soft)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--color-surface)'; }}
+                    className="btn btn-ghost"
+                    style={{ fontSize: 11, padding: '6px 10px', flexShrink: 0 }}
                   >
                     Get key <ExternalLink className="w-3 h-3" />
                   </button>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <input
                     type={isRevealed ? 'text' : 'password'}
                     value={value}
                     onChange={e => updateDraft(p.key, e.target.value)}
                     placeholder="Paste your API key"
-                    className="flex-1 px-3 py-2 rounded-lg text-sm font-mono"
-                    style={{
-                      background: 'var(--color-surface)',
-                      border: '1px solid var(--color-border)',
-                      color: 'var(--color-text-primary)',
-                      outline: 'none',
-                    }}
+                    style={innerInputStyle}
                   />
                   <button
+                    type="button"
                     onClick={() => toggleReveal(p.key)}
-                    className="p-2 rounded-lg transition-colors"
-                    style={{
-                      background: 'var(--color-surface)',
-                      border: '1px solid var(--color-border)',
-                      color: 'var(--color-text-muted)',
-                    }}
+                    style={innerIconBtnStyle}
                     aria-label={isRevealed ? 'Hide key' : 'Reveal key'}
                   >
                     {isRevealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -407,28 +388,17 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
         </div>
 
         {/* Footer */}
-        <div
-          className="flex items-center justify-end gap-2 px-6 py-4"
-          style={{ borderTop: '1px solid var(--color-border)', background: 'var(--color-surface-alt)' }}
-        >
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-            style={{
-              background: 'var(--color-surface)',
-              border: '1px solid var(--color-border)',
-              color: 'var(--color-text-secondary)',
-            }}
-          >
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '14px 22px', borderTop: '1px dashed var(--line-2)' }}>
+          <button type="button" onClick={onClose} className="btn btn-ghost" style={{ padding: '8px 16px' }}>
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleSave}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+            className="btn btn-primary"
             style={{
-              background: justSaved ? 'var(--color-status-green)' : 'var(--color-accent)',
-              color: '#1A2332',
-              border: 'none',
+              padding: '8px 16px',
+              background: justSaved ? 'var(--mint-2)' : undefined,
             }}
           >
             {justSaved ? (
