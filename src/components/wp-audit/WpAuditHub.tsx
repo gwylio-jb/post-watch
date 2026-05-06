@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldAlert, Key, ChevronDown, ChevronUp, Globe, Trash2, Clock, ExternalLink, Users } from 'lucide-react';
+import { ShieldAlert, Key, ChevronDown, ChevronUp, Globe, Trash2, ExternalLink, Users, Zap } from 'lucide-react';
 import type { AuditCheck, AuditReport, AuditApiKeys, CheckResult } from '../../data/auditTypes';
 import { runScan, buildCheckCatalogue, normaliseUrl } from '../../utils/audit/scanEngine';
 import { isTauri } from '../../utils/audit/fetchUtil';
@@ -171,143 +171,238 @@ export default function WpAuditHub({ targetReportId, onTargetConsumed }: WpAudit
 
   // ── Idle / landing ──────────────────────────────────────────────────────────
 
-  return (
-    <div className="max-w-2xl mx-auto py-10 px-6 space-y-8">
-      {/* Hero */}
-      <div className="text-center space-y-3">
-        <div
-          className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-2"
-          style={{ background: 'var(--gradient-accent)' }}
-        >
-          <ShieldAlert className="w-8 h-8 text-white" />
-        </div>
-        <span className="mono-tag mb-1">wp audit</span>
-        <h2 className="font-display font-bold text-3xl text-text-primary">WP Security Audit</h2>
-        <p className="text-text-muted max-w-md mx-auto">
-          An external attacker-perspective scan of any WordPress site. No plugin access required — this is what a real threat actor sees.
-        </p>
-      </div>
+  const safeReports = Array.isArray(savedReports) ? savedReports : [];
+  const lastScan = safeReports[0];
+  const apiKeysConfigured = (apiKeys.googleSafeBrowsing ? 1 : 0) + (apiKeys.virusTotal ? 1 : 0);
+  const checkCategories = [
+    { label: 'DNS & Email',      accent: 'mint'   as const },
+    { label: 'TLS / SSL',        accent: 'mint'   as const },
+    { label: 'Security headers', accent: 'mint'   as const },
+    { label: 'WordPress core',   accent: 'violet' as const },
+    { label: 'File exposure',    accent: 'ember'  as const },
+    { label: 'Reputation',       accent: 'violet' as const },
+    { label: 'Configuration',    accent: 'mint'   as const },
+  ];
 
-      {/* Tauri banner (browser mode) */}
+  return (
+    <div className="page">
+      {/* Hero */}
+      <section className="hero">
+        <div className="hero-l">
+          <span className="kicker">post_scan · external audit</span>
+          <h1 className="h-condensed title">
+            Run a scan<span className="u">_</span><br />without ever logging in.
+          </h1>
+          <p className="sub">
+            External attacker-perspective scan of any WordPress site. No plugin access required — this is what a real threat actor would see from the outside.
+          </p>
+          <div className="hero-stats">
+            <div className="hero-stat">
+              <div className="l">Saved scans</div>
+              <div className="v">{safeReports.length}</div>
+            </div>
+            <div className="hero-stat">
+              <div className="l">Checks per run</div>
+              <div className="v">~{buildCheckCatalogue().length}</div>
+            </div>
+            <div className="hero-stat">
+              <div className="l">Runtime</div>
+              <div className="v" style={{ fontSize: 22 }}>
+                {tauriAvailable ? 'Desktop' : 'Browser'}
+                <small> {tauriAvailable ? 'full' : 'partial'}</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right pane — coverage panel. Replaces the dashboard's Gauge slot since
+            there's no score before the first scan completes. */}
+        <div className="gauge-wrap" style={{ alignItems: 'stretch' }}>
+          <div
+            style={{
+              padding: '20px 22px',
+              borderRadius: 22,
+              background: 'var(--glass-bg)',
+              border: '1px solid var(--glass-bd)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              boxShadow: 'var(--glass-shadow)',
+              display: 'flex', flexDirection: 'column', gap: 10,
+              minWidth: 240,
+            }}
+          >
+            <span className="kicker violet">coverage</span>
+            <div style={{ fontFamily: 'var(--font-redesign-condensed)', fontWeight: 800, fontSize: 64, lineHeight: 1, color: 'var(--ink-1)', letterSpacing: '-0.04em' }}>
+              {buildCheckCatalogue().length}
+              <small style={{ fontFamily: 'var(--font-redesign-mono)', fontSize: 14, color: 'var(--ink-3)', fontWeight: 500, marginLeft: 6 }}>checks</small>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+              {checkCategories.map(c => (
+                <div key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--ink-2)' }}>
+                  <span style={{
+                    width: 6, height: 6, borderRadius: '50%',
+                    background:
+                      c.accent === 'mint'   ? 'var(--mint)'   :
+                      c.accent === 'violet' ? 'var(--violet)' :
+                                              'var(--ember)',
+                    flexShrink: 0,
+                  }} />
+                  {c.label}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Browser-mode warning — only when we can't reach the full catalogue */}
       {!tauriAvailable && (
         <div
-          className="flex items-start gap-3 p-4 rounded-xl text-sm"
-          style={{ background: 'color-mix(in srgb, var(--color-status-amber) 12%, var(--color-surface))', border: '1px solid color-mix(in srgb, var(--color-status-amber) 30%, var(--color-border))' }}
+          className="bubble"
+          style={{ padding: 16, display: 'flex', gap: 12, alignItems: 'flex-start', background: 'color-mix(in oklab, var(--ember) 10%, var(--glass-bg))', borderColor: 'color-mix(in oklab, var(--ember) 30%, var(--glass-bd))' }}
         >
-          <ShieldAlert className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--color-status-amber)' }} />
-          <div>
-            <p className="font-medium" style={{ color: 'var(--color-status-amber)' }}>Browser mode — limited coverage</p>
-            <p className="text-text-muted mt-0.5">
-              DNS, TLS, and reputation checks run in any browser. Security header, WordPress core, file exposure, and configuration checks require the desktop app (bypasses CORS).
-            </p>
+          <ShieldAlert className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--ember)', marginTop: 2 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--ember)' }}>Browser mode — limited coverage</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 2, lineHeight: 1.5 }}>
+              DNS, TLS and reputation checks run in any browser. Security headers, WordPress core, file-exposure and configuration checks require the desktop app (CORS bypass).
+            </div>
           </div>
         </div>
       )}
 
-      {/* URL Input card */}
-      <div className="card-elevated p-6 space-y-4">
-        <div>
-          <label htmlFor="wp-url" className="block text-sm font-semibold text-text-primary mb-2">
-            Target URL
-          </label>
-          <div className="flex gap-3">
-            <div className="relative flex-1">
-              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
-              <input
-                id="wp-url"
-                type="url"
-                value={urlInput}
-                onChange={e => { setUrlInput(e.target.value); setUrlError(''); }}
-                onKeyDown={e => e.key === 'Enter' && startScan(urlInput)}
-                placeholder="https://example.com"
-                className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm text-text-primary placeholder-text-muted bg-surface-alt outline-none focus:ring-2 transition-all"
-                style={{
-                  border: urlError ? '1px solid var(--color-status-red)' : '1px solid var(--color-border)',
-                  '--tw-ring-color': 'var(--color-accent)',
-                } as React.CSSProperties}
-                autoComplete="url"
-                spellCheck={false}
-              />
+      {/* Target form — primary action */}
+      <section className="bubble">
+        <div className="card-head">
+          <div>
+            <span className="kicker">target</span>
+            <h3>New scan</h3>
+            <div className="desc">Type a domain, pick the client to file the report under, then hit scan.</div>
+          </div>
+          <span className="tag-mod">post_scan</span>
+        </div>
+        <div style={{ padding: '0 22px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* URL */}
+          <div>
+            <label htmlFor="wp-url" style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'var(--font-redesign-mono)', marginBottom: 6 }}>
+              Target URL
+            </label>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <Globe className="w-4 h-4" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-3)', pointerEvents: 'none' }} />
+                <input
+                  id="wp-url"
+                  type="url"
+                  value={urlInput}
+                  onChange={e => { setUrlInput(e.target.value); setUrlError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && startScan(urlInput)}
+                  placeholder="https://example.com"
+                  autoComplete="url"
+                  spellCheck={false}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px 10px 36px',
+                    borderRadius: 12,
+                    border: `1px solid ${urlError ? 'var(--ember)' : 'var(--line-2)'}`,
+                    background: 'var(--bg-2)',
+                    color: 'var(--ink-1)',
+                    fontSize: 14,
+                    outline: 'none',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => startScan(urlInput)}
+                disabled={!urlInput.trim()}
+                style={{ flexShrink: 0, padding: '10px 18px' }}
+              >
+                <Zap className="w-4 h-4" /> Scan
+              </button>
             </div>
-            <button
-              onClick={() => startScan(urlInput)}
-              disabled={!urlInput.trim()}
-              className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-              style={{ background: 'var(--gradient-accent)' }}
-            >
-              Scan
-            </button>
+            {(urlError || scanError) && (
+              <p style={{ fontSize: 12, color: 'var(--ember)', marginTop: 6, fontFamily: 'var(--font-redesign-mono)' }}>
+                {urlError || scanError}
+              </p>
+            )}
           </div>
-          {urlError && <p className="text-xs mt-1.5" style={{ color: 'var(--color-status-red)' }}>{urlError}</p>}
-          {scanError && <p className="text-xs mt-1.5" style={{ color: 'var(--color-status-red)' }}>{scanError}</p>}
-        </div>
 
-        {/* Client tag — the scan is filed under this client in the Report Hub */}
-        <div>
-          <label htmlFor="wp-client" className="block text-sm font-semibold text-text-primary mb-2">
-            Client
-          </label>
-          <div className="relative">
-            <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
-            <select
-              id="wp-client"
-              value={scanClientId}
-              onChange={e => setScanClientId(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm text-text-primary bg-surface-alt outline-none focus:ring-2 transition-all appearance-none"
-              style={{
-                border: '1px solid var(--color-border)',
-                '--tw-ring-color': 'var(--color-accent)',
-              } as React.CSSProperties}
-            >
-              {clientsList.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+          {/* Client */}
+          <div>
+            <label htmlFor="wp-client" style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'var(--font-redesign-mono)', marginBottom: 6 }}>
+              File under client
+            </label>
+            <div style={{ position: 'relative' }}>
+              <Users className="w-4 h-4" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-3)', pointerEvents: 'none' }} />
+              <select
+                id="wp-client"
+                value={scanClientId}
+                onChange={e => setScanClientId(e.target.value)}
+                style={{
+                  width: '100%', appearance: 'none',
+                  padding: '10px 36px 10px 36px',
+                  borderRadius: 12,
+                  border: '1px solid var(--line-2)',
+                  background: 'var(--bg-2)',
+                  color: 'var(--ink-1)',
+                  fontSize: 14,
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                  cursor: 'pointer',
+                }}
+              >
+                {clientsList.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-3)', pointerEvents: 'none' }} />
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 6, fontFamily: 'var(--font-redesign-mono)' }}>
+              // logo is frozen onto the report so reprints stay on-brand.
+            </p>
           </div>
-          <p className="text-xs text-text-muted mt-1.5">
-            The scan is tagged to this client. Their logo is frozen onto the report so reprints stay on-brand.
-          </p>
         </div>
+      </section>
 
-        {/* What we check */}
-        <div className="flex flex-wrap gap-1.5">
-          {['DNS & Email', 'TLS/SSL', 'Security Headers', 'WP Core', 'File Exposure', 'Reputation', 'Configuration'].map(tag => (
-            <span
-              key={tag}
-              className="text-[10px] font-medium px-2 py-0.5 rounded-md font-mono"
-              style={{ background: 'var(--color-surface-alt)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* API Keys (optional) */}
-      <div className="card-elevated overflow-hidden">
+      {/* API Keys (optional, collapsible) */}
+      <section className="bubble">
         <button
+          type="button"
           onClick={() => setShowApiKeys(s => !s)}
-          className="w-full flex items-center gap-3 p-4 text-left hover:bg-surface-alt transition-colors"
+          style={{
+            width: '100%',
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '18px 22px',
+            background: 'transparent',
+            border: 0,
+            color: 'inherit',
+            cursor: 'pointer',
+            font: 'inherit',
+            textAlign: 'left',
+          }}
+          aria-expanded={showApiKeys}
         >
-          <Key className="w-4 h-4 text-text-muted" />
-          <span className="text-sm font-semibold text-text-primary flex-1">API Keys (optional)</span>
-          <span className="text-xs text-text-muted">
-            {(apiKeys.googleSafeBrowsing ? 1 : 0) + (apiKeys.virusTotal ? 1 : 0)} configured
+          <Key className="w-4 h-4" style={{ color: 'var(--ink-3)' }} />
+          <span style={{ flex: 1, fontWeight: 600, fontSize: 14, color: 'var(--ink-1)' }}>API keys (optional)</span>
+          <span style={{ fontSize: 11, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>
+            {apiKeysConfigured} configured
           </span>
-          {showApiKeys ? <ChevronUp className="w-4 h-4 text-text-muted" /> : <ChevronDown className="w-4 h-4 text-text-muted" />}
+          {showApiKeys ? <ChevronUp className="w-4 h-4" style={{ color: 'var(--ink-3)' }} /> : <ChevronDown className="w-4 h-4" style={{ color: 'var(--ink-3)' }} />}
         </button>
-        <AnimatePresence>
+        <AnimatePresence initial={false}>
           {showApiKeys && (
             <motion.div
-              initial={{ height: 0 }}
-              animate={{ height: 'auto' }}
-              exit={{ height: 0 }}
-              className="overflow-hidden"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              style={{ overflow: 'hidden' }}
             >
-              <div className="px-4 pb-4 space-y-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
-                <p className="text-xs text-text-muted pt-3">
-                  All checks that require API keys are skipped if not provided. Keys are stored locally and never sent to any server other than the API endpoint.
+              <div style={{ padding: '0 22px 22px', display: 'flex', flexDirection: 'column', gap: 14, borderTop: '1px dashed var(--line-2)' }}>
+                <p style={{ fontSize: 12, color: 'var(--ink-3)', paddingTop: 12, lineHeight: 1.5 }}>
+                  Checks that need an API key are skipped when no key is set. Keys live in localStorage and only travel to the matching API endpoint.
                 </p>
                 <ApiKeyField
                   label="Google Safe Browsing"
@@ -327,14 +422,23 @@ export default function WpAuditHub({ targetReportId, onTargetConsumed }: WpAudit
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </section>
 
       {/* Saved scans */}
-      {savedReports.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-text-secondary">Recent Scans</h3>
-          <div className="space-y-2">
-            {savedReports.slice(0, 10).map(report => (
+      {safeReports.length > 0 && (
+        <section className="bubble">
+          <div className="card-head">
+            <div>
+              <span className="kicker">post_scan · history</span>
+              <h3>Recent scans</h3>
+              <div className="desc">
+                Last scan {lastScan ? new Date(lastScan.completedAt ?? lastScan.startedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'} · keeping the last {MAX_SAVED}.
+              </div>
+            </div>
+            <span className="tag-mod">post_scan</span>
+          </div>
+          <div className="scan-list">
+            {safeReports.slice(0, 10).map(report => (
               <RecentScanRow
                 key={report.id}
                 report={report}
@@ -344,7 +448,7 @@ export default function WpAuditHub({ targetReportId, onTargetConsumed }: WpAudit
               />
             ))}
           </div>
-        </div>
+        </section>
       )}
     </div>
   );
@@ -363,14 +467,15 @@ function ApiKeyField({
 }) {
   return (
     <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <label className="text-xs font-medium text-text-secondary">{label}</label>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'var(--font-redesign-mono)' }}>
+          {label}
+        </label>
         <a
           href={docsUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs flex items-center gap-0.5 transition-colors"
-          style={{ color: 'var(--color-accent)' }}
+          style={{ fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--mint)', fontFamily: 'var(--font-redesign-mono)', textDecoration: 'none' }}
         >
           Get key <ExternalLink className="w-3 h-3" />
         </a>
@@ -380,10 +485,19 @@ function ApiKeyField({
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-3 py-2 rounded-lg text-xs text-text-primary placeholder-text-muted bg-surface-alt outline-none focus:ring-2 transition-all font-mono"
-        style={{ border: '1px solid var(--color-border)', '--tw-ring-color': 'var(--color-accent)' } as React.CSSProperties}
         autoComplete="off"
         spellCheck={false}
+        style={{
+          width: '100%',
+          padding: '8px 12px',
+          borderRadius: 10,
+          border: '1px solid var(--line-2)',
+          background: 'var(--bg-2)',
+          color: 'var(--ink-1)',
+          fontSize: 12,
+          fontFamily: 'var(--font-redesign-mono)',
+          outline: 'none',
+        }}
       />
     </div>
   );
@@ -401,67 +515,53 @@ function RecentScanRow({
   onDelete: (id: string, e: React.MouseEvent) => void;
 }) {
   const score = report.score;
-  const color =
-    score >= 90 ? 'var(--color-status-green)'
-    : score >= 70 ? 'var(--color-status-blue)'
-    : score >= 40 ? 'var(--color-status-amber)'
-    : 'var(--color-status-red)';
-
+  const tone: 'good' | 'warn' | 'bad' = score >= 80 ? 'good' : score >= 50 ? 'warn' : 'bad';
   const date = new Date(report.completedAt ?? report.startedAt);
-  const issueCount = report.checks.filter(c => c.result?.status === 'fail').length;
+  const critCount = report.checks.filter(c => c.result?.status === 'fail' && c.worstCaseSeverity === 'Critical').length;
+  const highCount = report.checks.filter(c => c.result?.status === 'fail' && c.worstCaseSeverity === 'High').length;
 
   return (
     <button
+      type="button"
+      className="scan-row"
       onClick={() => onLoad(report)}
-      className="w-full card-elevated p-3 flex items-center gap-3 text-left hover:shadow-card-hover transition-all group"
+      aria-label={`Open scan for ${report.domain}, score ${score} out of 100`}
+      style={{ gridTemplateColumns: '56px 1fr auto auto auto' }}
     >
-      {/* Score circle */}
-      <div
-        className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold"
-        style={{ background: `color-mix(in srgb, ${color} 15%, var(--color-surface-alt))`, color, border: `2px solid color-mix(in srgb, ${color} 40%, transparent)` }}
-      >
-        {score}
-      </div>
-
-      {report.clientLogo && (
-        <div
-          className="w-8 h-8 rounded-lg flex-shrink-0 overflow-hidden"
-          style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)' }}
-        >
-          <img src={report.clientLogo} alt="" className="w-full h-full object-contain" />
-        </div>
-      )}
-
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-text-primary truncate">{report.domain}</div>
-        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-          <Clock className="w-3 h-3 text-text-muted flex-shrink-0" />
-          <span className="text-xs text-text-muted">
-            {date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-          </span>
-          {clientName && (
-            <span
-              className="text-[10px] font-medium px-1.5 py-0.5 rounded-md"
-              style={{ background: 'var(--color-surface-alt)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}
-            >
-              {clientName}
-            </span>
-          )}
-          {issueCount > 0 && (
-            <span className="text-xs font-medium" style={{ color: 'var(--color-status-red)' }}>
-              {issueCount} issue{issueCount !== 1 ? 's' : ''}
-            </span>
-          )}
+      <div className={`scan-score ${tone}`} aria-hidden>{score}</div>
+      <div style={{ minWidth: 0 }}>
+        <div className="scan-domain" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{report.domain}</div>
+        <div className="scan-meta">
+          {date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+          {clientName ? ` · ${clientName}` : ''}
         </div>
       </div>
-
-      <button
+      <div className="scan-issues">
+        {critCount > 0 && <span className="pill ember"><span className="dot" style={{ background: 'var(--ember)' }} />{critCount} crit</span>}
+        {highCount > 0 && <span className="pill violet"><span className="dot" style={{ background: 'var(--violet)' }} />{highCount} high</span>}
+        {critCount === 0 && highCount === 0 && <span className="pill mint"><span className="dot" style={{ background: 'var(--mint)' }} />clean</span>}
+      </div>
+      {report.clientLogo
+        ? <img src={report.clientLogo} alt="" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'contain', background: 'var(--bg-2)', border: '1px solid var(--line)' }} />
+        : <span style={{ width: 28 }} aria-hidden />
+      }
+      <span
+        role="button"
+        tabIndex={0}
         onClick={e => onDelete(report.id, e)}
-        className="p-1.5 rounded-lg text-text-muted hover:text-status-red opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
-        aria-label="Delete scan"
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onDelete(report.id, e as unknown as React.MouseEvent); } }}
+        aria-label={`Delete scan for ${report.domain}`}
+        style={{
+          padding: 6, borderRadius: 8,
+          color: 'var(--ink-3)',
+          display: 'grid', placeItems: 'center',
+          cursor: 'pointer',
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--ember)'; (e.currentTarget as HTMLElement).style.background = 'color-mix(in oklab, var(--ember) 15%, transparent)'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--ink-3)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
       >
         <Trash2 className="w-3.5 h-3.5" />
-      </button>
+      </span>
     </button>
   );
 }
