@@ -328,12 +328,16 @@ export default function ReportHub() {
 
   return (
     <div className="page">
-      {/* Hero */}
-      <section className="hero">
+      {/* Hero — compressed to a single column (Sprint 12 user QA: was
+          overflowing the viewport). The previous "// selection" right
+          pane is now part of the controls column below; that's where
+          users pick the template + data, so the live preview of those
+          choices belongs alongside, not floating in the hero. */}
+      <section className="hero" style={{ gridTemplateColumns: '1fr', padding: '24px 28px' }}>
         <div className="hero-l">
           <span className="kicker">post_report · exports</span>
-          <h1 className="h-condensed title">
-            Branded reports<span className="u">_</span><br />on demand.
+          <h1 className="h-condensed title" style={{ fontSize: 40 }}>
+            Branded reports<span className="u">_</span> on demand.
           </h1>
           <p className="sub">
             Pick a client, pick a template, get a branded PDF that pairs scan findings with ISO 27001 compliance posture. Every export carries the client's logo and engagement metadata.
@@ -370,46 +374,6 @@ export default function ReportHub() {
               {downloadError}
             </p>
           )}
-        </div>
-
-        {/* Right pane — current selection summary */}
-        <div className="gauge-wrap" style={{ alignItems: 'stretch' }}>
-          <div
-            style={{
-              padding: '20px 22px',
-              borderRadius: 22,
-              background: 'var(--glass-bg)',
-              border: '1px solid var(--glass-bd)',
-              backdropFilter: 'blur(20px)',
-              display: 'flex', flexDirection: 'column', gap: 12, minWidth: 260,
-            }}
-          >
-            <span className="kicker violet">selection</span>
-            <h3 style={{ margin: 0, fontFamily: 'var(--font-redesign-display)', fontSize: 18, fontWeight: 700, color: 'var(--ink-1)', letterSpacing: '-0.01em' }}>
-              {REPORT_TYPES.find(r => r.id === reportType)?.label}
-            </h3>
-            <div style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.5 }}>
-              {REPORT_TYPES.find(r => r.id === reportType)?.description}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
-              <KeyValue
-                k="Client"
-                v={clientScope === 'all' ? 'All clients' : (pickerClients.find(c => c.id === clientScope)?.name ?? 'Unknown')}
-              />
-              {(reportType === 'wp-security' || reportType === 'executive-summary') && (
-                <KeyValue
-                  k="WP scan"
-                  v={selectedReport ? `${selectedReport.domain} · ${selectedReport.score}/100` : '—'}
-                />
-              )}
-              {(reportType === 'compliance-status' || reportType === 'executive-summary') && (
-                <KeyValue
-                  k="Gap session"
-                  v={selectedSession?.name ?? '—'}
-                />
-              )}
-            </div>
-          </div>
         </div>
       </section>
 
@@ -588,14 +552,6 @@ export default function ReportHub() {
   );
 }
 
-function KeyValue({ k, v }: { k: string; v: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '6px 0', borderBottom: '1px dashed var(--line)' }}>
-      <span style={{ fontSize: 10, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{k}</span>
-      <span style={{ fontSize: 12, color: 'var(--ink-1)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }} title={v}>{v}</span>
-    </div>
-  );
-}
 
 function EmptyPreview({ message }: { message: string }) {
   return (

@@ -177,17 +177,20 @@ export default function AlertCenter({ onNavigate }: AlertCenterProps) {
 
   return (
     <div className="page">
-      {/* Hero */}
-      <section className="hero">
+      {/* Hero — compressed (Sprint 12 user QA: was overflowing the viewport
+          on smaller windows). Single column, smaller title, severity
+          breakdown collapsed to a horizontal pill row inside hero-l so it
+          doesn't push the whole hero past the fold. */}
+      <section className="hero" style={{ gridTemplateColumns: '1fr', padding: '24px 28px' }}>
         <div className="hero-l">
           <span className="kicker ember">post_alert · live alerts</span>
-          <h1 className="h-condensed title">
-            What needs attention<span className="u">_</span><br />right now.
+          <h1 className="h-condensed title" style={{ fontSize: 40 }}>
+            What needs attention<span className="u">_</span> right now.
           </h1>
           <p className="sub">
             Derived from WP scan findings, compliance gap analysis, and TLS certificate data. Dismiss what's actioned — the badge mirrors what's open.
           </p>
-          <div className="hero-stats">
+          <div className="hero-stats" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
             <div className="hero-stat">
               <div className="l">Open</div>
               <div className="v" style={{ color: totalOpen > 0 ? 'var(--ember)' : 'var(--mint)' }}>{totalOpen}</div>
@@ -195,6 +198,14 @@ export default function AlertCenter({ onNavigate }: AlertCenterProps) {
             <div className="hero-stat">
               <div className="l">Critical</div>
               <div className="v" style={{ color: counts.Critical > 0 ? 'var(--ember)' : undefined }}>{counts.Critical}</div>
+            </div>
+            <div className="hero-stat">
+              <div className="l">High</div>
+              <div className="v" style={{ color: counts.High > 0 ? 'var(--ember)' : undefined }}>{counts.High}</div>
+            </div>
+            <div className="hero-stat">
+              <div className="l">Medium</div>
+              <div className="v" style={{ color: counts.Medium > 0 ? 'var(--violet)' : undefined }}>{counts.Medium}</div>
             </div>
             <div className="hero-stat">
               <div className="l">Dismissed</div>
@@ -207,33 +218,6 @@ export default function AlertCenter({ onNavigate }: AlertCenterProps) {
                 <CheckCircle className="w-4 h-4" /> Dismiss all
               </button>
             )}
-          </div>
-        </div>
-
-        {/* Right pane — severity breakdown */}
-        <div className="gauge-wrap" style={{ alignItems: 'stretch' }}>
-          <div
-            style={{
-              padding: '20px 22px',
-              borderRadius: 22,
-              background: 'var(--glass-bg)',
-              border: '1px solid var(--glass-bd)',
-              backdropFilter: 'blur(20px)',
-              display: 'flex', flexDirection: 'column', gap: 8,
-              minWidth: 240,
-            }}
-          >
-            <span className="kicker violet">by severity</span>
-            {(Object.entries(counts) as [AlertSeverity, number][]).map(([sev, count]) => {
-              const sc = severityColors[sev];
-              return (
-                <div key={sev} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 0' }}>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: sc.text, flexShrink: 0, opacity: count > 0 ? 1 : 0.35 }} />
-                  <span style={{ flex: 1, fontSize: 13, color: 'var(--ink-2)' }}>{sev}</span>
-                  <span style={{ fontFamily: 'var(--font-redesign-condensed)', fontWeight: 800, fontSize: 22, lineHeight: 1, color: count > 0 ? sc.text : 'var(--ink-3)' }}>{count}</span>
-                </div>
-              );
-            })}
           </div>
         </div>
       </section>

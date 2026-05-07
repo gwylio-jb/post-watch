@@ -40,6 +40,24 @@ function fakeReport(over: Partial<AuditReport> = {}): AuditReport {
 }
 
 describe('<Dashboard />', () => {
+  it('always renders the hero with title, subtitle, kicker and CTA buttons', () => {
+    // Regression test for the Sprint 12 user-QA finding where the user
+    // reported the hero appearing as a thin empty band on their build.
+    // If the hero ever stops rendering — empty state, full state, any
+    // state — this catches it before it reaches an installed app.
+    render(<Dashboard onNavigate={vi.fn()} onOpenReport={vi.fn()} />);
+
+    // Kicker
+    expect(screen.getByText(/post_status · live posture/i)).toBeInTheDocument();
+    // Title — split across the <span class="u">_</span>, so match by partial.
+    expect(screen.getByText(/Always watching/i)).toBeInTheDocument();
+    expect(screen.getByText(/always ready/i)).toBeInTheDocument();
+    // CTA buttons — "Run new scan" appears both in the hero and in the
+    // Quick Actions card on the right; assert at least one exists.
+    expect(screen.getAllByRole('button', { name: /Run new scan/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: /Generate report/i }).length).toBeGreaterThan(0);
+  });
+
   it('shows the first-launch welcome card when storage is empty', () => {
     const onNavigate = vi.fn();
     const onOpenReport = vi.fn();

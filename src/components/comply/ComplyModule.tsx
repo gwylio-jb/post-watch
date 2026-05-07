@@ -45,12 +45,13 @@ export default function ComplyModule({ clauses, controls }: ComplyModuleProps) {
 
   return (
     <div className="page">
-      {/* Hero */}
-      <section className="hero">
+      {/* Hero — single-column, no nav-map right pane (Sprint 12 user QA).
+          Workflow nav lives in the sticky tab strip below. */}
+      <section className="hero" style={{ gridTemplateColumns: '1fr', padding: '24px 28px' }}>
         <div className="hero-l">
           <span className="kicker">post_comply · gap &amp; treat</span>
-          <h1 className="h-condensed title">
-            Track every clause<span className="u">_</span><br />close every gap.
+          <h1 className="h-condensed title" style={{ fontSize: 44 }}>
+            Track every clause<span className="u">_</span> close every gap.
           </h1>
           <p className="sub">
             Map current posture against ISO 27001, plan the work, and keep an evidence trail your auditor will actually accept.
@@ -70,65 +71,27 @@ export default function ComplyModule({ clauses, controls }: ComplyModuleProps) {
             </div>
           </div>
         </div>
-
-        {/* Right pane — tab map */}
-        <div className="gauge-wrap" style={{ alignItems: 'stretch' }}>
-          <div
-            style={{
-              padding: '20px 22px',
-              borderRadius: 22,
-              background: 'var(--glass-bg)',
-              border: '1px solid var(--glass-bd)',
-              backdropFilter: 'blur(20px)',
-              display: 'flex', flexDirection: 'column', gap: 10,
-              minWidth: 240,
-            }}
-          >
-            <span className="kicker violet">workflow</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {tabs.map(t => {
-                const active = activeTab === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setActiveTab(t.id)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '8px 12px',
-                      borderRadius: 12,
-                      background: active
-                        ? 'color-mix(in oklab, var(--mint) 16%, transparent)'
-                        : 'transparent',
-                      border: active
-                        ? '1px solid color-mix(in oklab, var(--mint) 40%, transparent)'
-                        : '1px solid transparent',
-                      color: active ? 'var(--mint)' : 'var(--ink-2)',
-                      fontFamily: 'inherit',
-                      fontSize: 13, fontWeight: 500,
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                    }}
-                    aria-pressed={active}
-                  >
-                    <t.Icon className="w-4 h-4" style={{ flexShrink: 0 }} />
-                    {t.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
       </section>
 
-      {/* Sub-nav tab strip */}
-      <div
+      {/* Sub-nav tab strip — sticky to top of .page scroll. Glass background
+          so content scrolling underneath doesn't bleed through. */}
+      <nav
         role="tablist"
         aria-label="Compliance workflow"
         style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 5,
           display: 'flex', alignItems: 'center', gap: 4,
-          padding: '0 4px',
+          padding: '4px 4px 0',
           borderBottom: '1px solid var(--line-2)',
+          background: 'color-mix(in oklab, var(--bg-1) 85%, transparent)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          marginLeft: -28,
+          marginRight: -28,
+          paddingLeft: 32,
+          paddingRight: 32,
         }}
       >
         {tabs.map(tab => {
@@ -161,7 +124,7 @@ export default function ComplyModule({ clauses, controls }: ComplyModuleProps) {
             </button>
           );
         })}
-      </div>
+      </nav>
 
       {/* Tab content */}
       <div role="tabpanel" style={{ minHeight: 0 }}>
