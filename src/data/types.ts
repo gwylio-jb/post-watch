@@ -75,6 +75,13 @@ export interface GapAnalysisSession {
   items: GapAnalysisItem[];
   /** V2.1: owning client. Pre-V2.1 sessions are back-filled to 'unassigned'. */
   clientId?: string;
+  /**
+   * V2.5: AI-drafted Statement of Applicability section. Persisted on the
+   * session so re-opening shows the last generated version. Optional —
+   * sessions created before V2.5 stay un-drafted until the user runs the
+   * drafter.
+   */
+  soaDraft?: string;
 }
 
 export interface ImplementationItem {
@@ -185,3 +192,61 @@ export interface Client {
   notes?: string;
   createdAt: string;
 }
+
+// ─── Portfolio mode (V2.5) ────────────────────────────────────────────────────
+//
+// Sprint 13 introduces batch scanning, scheduled re-scans, and CSV imports
+// (see docs/sprint-13-discovery.md). Three new persisted shapes drive that:
+//   - ScanQueueItem  — one row in the foreground scan queue
+//   - Schedule       — generalised recurring task; v1 only fires `wp-scan`
+//   - SchedulerCadence — when a schedule runs
+
+export type ScanQueueStatus = 'pending' | 'running' | 'done' | 'failed' | 'cancelled';
+
+export interface ScanQueueItem {
+  /** Queue-row id; distinct from the eventual AuditReport id. */
+  id: string;
+  targetUrl: string;
+  /** Optional client tag — applied to the resulting AuditReport on success. */
+  clientId?: string;
+  status: ScanQueueStatus;
+  /** Populated on success. */
+  reportId?: string;
+  error?: string;
+  enqueuedAt: string;
+  startedAt?: string;
+  completedAt?: string;
+}
+
+/**
+ * Recurring cadence for a Schedule. Discriminated union so we can add new
+ * cadence kinds (e.g. `cron`) without breaking existing data.
+ */
+export type SchedulerCadence =
+  | { kind: 'weekly';   weekday: 0 | 1 | 2 | 3 | 4 | 5 | 6; hour: number }
+  | { kind: 'monthly';  day: number; hour: number }
+  | { kind: 'interval'; days: number };
+
+/**
+ * Generalised recurring task. The `kind` discriminator picks what fires:
+ * v2.5 ships only `wp-scan` (re-scan a domain). Pack 4's monthly executive
+ * PDF will add `report-export` without touching this type's shape.
+ */
+export type Schedule =
+  | {
+      id: string;
+      kind: 'wp-scan';
+      domain: string;
+      clientId?: string;
+      cadence: SchedulerCadence;
+      /** Score-drop threshold (points) that triggers an alert. Optional. */
+      alertOnDrop?: number;
+      active: boolean;
+      lastFiredAt?: string;
+      /** Pre-computed for efficient scan-on-launch matching. ISO string, UTC. */
+      nextDueAt: string;
+      /** Soft-delete marker. Omitted = live. */
+      deletedAt?: string;
+    };
+    // Future: { kind: 'report-export'; ... } in Pack 4.
+

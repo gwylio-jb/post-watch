@@ -25,7 +25,7 @@ import type { SearchResult } from './hooks/useSearch';
 import type { AuditReport } from './data/auditTypes';
 import type { GapAnalysisSession } from './data/types';
 import { deriveAlerts, filterDismissed } from './utils/deriveAlerts';
-import { runClientMigration } from './utils/clientMigration';
+import { runMigrations } from './utils/migrations';
 
 export default function App() {
   const [activeSection, setActiveSection] = useLocalStorage<AppSection>('active-section', 'post_status');
@@ -50,13 +50,13 @@ export default function App() {
     return filterDismissed(deriveAlerts(reports, sessions), dismissed).length;
   }, [savedReports, gapSessions, dismissedAlertIds]);
 
-  // V2.1 one-shot migration: seed "Unassigned" client + back-fill clientId
-  // onto legacy risks/cheatsheets/gap sessions/scans. Guarded by a flag so it
-  // runs exactly once per device, before any child module reads its data.
+  // Versioned storage migrations — runs every pending step from the device's
+  // current version up to the target. Each step is idempotent and the runner
+  // is a no-op on already-current devices. See utils/migrations/index.ts.
   useEffect(() => {
-    const res = runClientMigration();
-    if (res.ran) {
-      console.info('[post-watch] V2.1 migration ran:', res.counts);
+    const res = runMigrations();
+    if (res.applied.length > 0) {
+      console.info(`[post-watch] migrations applied: v${res.fromVersion} → v${res.toVersion} (steps: ${res.applied.join(', ')})`);
     }
   }, []);
 
