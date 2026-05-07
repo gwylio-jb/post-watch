@@ -5,7 +5,7 @@ import type { AiSettings } from '../../data/auditTypes';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { exportAsMarkdown, exportAsPrintHTML } from '../../utils/export';
 import { UNASSIGNED_CLIENT_ID } from '../../utils/clientMigration';
-import { gapNarrativePrompt } from '../../utils/ai/prompts';
+import { gapNarrativePrompt, statementOfApplicabilityPrompt } from '../../utils/ai/prompts';
 import ExportButton from '../shared/ExportButton';
 import StatusIndicator from '../shared/StatusIndicator';
 import GapDashboard from './GapDashboard';
@@ -27,6 +27,9 @@ export default function GapAnalysis({ controls, clauses }: GapAnalysisProps) {
   const [ai] = useLocalStorage<AiSettings>('ai-settings', {});
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
+  // Sprint 13 Pack 1 — separate state from `aiOpen` so the two drafters can't
+  // accidentally double-mount AiPanel.
+  const [soaDraftOpen, setSoaDraftOpen] = useState(false);
   const [sessionName, setSessionName] = useState('');
   const [sessionClientId, setSessionClientId] = useState<string>(UNASSIGNED_CLIENT_ID);
   const [scope, setScope] = useState<'full' | 'clauses' | 'controls'>('full');
@@ -260,6 +263,23 @@ export default function GapAnalysis({ controls, clauses }: GapAnalysisProps) {
             Draft commentary
           </button>
           <button
+            type="button"
+            onClick={() => setSoaDraftOpen(true)}
+            disabled={!ai.model?.trim()}
+            title={ai.model?.trim()
+              ? 'Draft the Statement of Applicability section locally'
+              : 'Pick a model in Settings → Local AI to enable'}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              background: 'rgba(139,92,246,0.12)',
+              color: 'var(--color-text-violet, #7C3AED)',
+              border: '1px solid rgba(139,92,246,0.35)',
+            }}
+          >
+            <Sparkles className="w-3 h-3" />
+            Draft SoA
+          </button>
+          <button
             onClick={() => setShowDashboard(!showDashboard)}
             className={`px-3 py-1.5 text-xs rounded-md transition-colors ${showDashboard ? 'bg-accent/20 text-accent' : 'bg-surface border border-border text-text-secondary hover:text-text-primary'}`}
           >
@@ -289,6 +309,36 @@ export default function GapAnalysis({ controls, clauses }: GapAnalysisProps) {
             maxTokens={1500}
             outputKind="prose"
             onClose={() => setAiOpen(false)}
+          />
+        </Suspense>
+      )}
+
+      {soaDraftOpen && ai.model && (
+        <Suspense fallback={null}>
+          <AiPanel
+            title="Draft Statement of Applicability"
+            subtitle={activeSession.name}
+            model={ai.model}
+            baseUrl={ai.baseUrl}
+            prompt={statementOfApplicabilityPrompt(
+              activeSession,
+              controls,
+              { client: clients.find(c => c.id === (activeSession.clientId ?? UNASSIGNED_CLIENT_ID)) },
+            )}
+            maxTokens={2000}
+            outputKind="prose"
+            // Land the accepted draft straight onto the session record so
+            // re-opening the session shows the latest draft. The user can
+            // regenerate at any time.
+            onAccept={text => {
+              setSessions(prev => (Array.isArray(prev) ? prev : []).map(s =>
+                s.id === activeSession.id
+                  ? { ...s, soaDraft: text, updatedAt: new Date().toISOString() }
+                  : s
+              ));
+            }}
+            acceptLabel="Save SoA draft"
+            onClose={() => setSoaDraftOpen(false)}
           />
         </Suspense>
       )}

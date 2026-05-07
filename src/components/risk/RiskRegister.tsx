@@ -1,8 +1,14 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit2, Trash2, X, Users, Target, ChevronDown, FileText } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Users, Target, ChevronDown, FileText, Sparkles } from 'lucide-react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { riskTreatmentPlanPrompt } from '../../utils/ai/prompts';
+import type { AiSettings } from '../../data/auditTypes';
+
+// Lazy — AiPanel pulls in the streaming Ollama client; only load when the
+// user actually opens the drafter.
+const AiPanel = lazy(() => import('../common/AiPanel'));
 import { managementClauses } from '../../data/clauses';
 import { allControls } from '../../data/controls';
 import type {
@@ -370,6 +376,11 @@ function RiskForm({ initial, defaultClientId, clients, appetiteThreshold, onSave
       : blankRisk(defaultClientId)
   );
 
+  // Sprint 13 — local-AI drafter for the treatment paragraph. State stays
+  // in this form component so the panel closes cleanly with the modal.
+  const [aiSettings] = useLocalStorage<AiSettings>('ai-settings', {});
+  const [draftingTreatment, setDraftingTreatment] = useState(false);
+
   const score = form.likelihood * form.impact;
   const autoAccept = appetiteThreshold !== null && score <= appetiteThreshold;
 
@@ -506,7 +517,34 @@ function RiskForm({ initial, defaultClientId, clients, appetiteThreshold, onSave
           </div>
 
           <div>
-            <label style={labelStyle}>Treatment description</label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <label style={labelStyle}>Treatment description</label>
+              <button
+                type="button"
+                onClick={() => setDraftingTreatment(true)}
+                disabled={!aiSettings.model || !form.name.trim()}
+                title={
+                  !aiSettings.model
+                    ? 'Pick a model in Settings → Local AI to enable'
+                    : !form.name.trim()
+                      ? 'Add a risk name first'
+                      : 'Generate a draft treatment plan locally'
+                }
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '4px 10px', borderRadius: 8,
+                  background: 'rgba(0,217,163,0.12)',
+                  border: '1px solid rgba(0,217,163,0.30)',
+                  color: 'var(--mint)',
+                  fontSize: 11, fontWeight: 600,
+                  cursor: (!aiSettings.model || !form.name.trim()) ? 'not-allowed' : 'pointer',
+                  opacity: (!aiSettings.model || !form.name.trim()) ? 0.5 : 1,
+                  marginBottom: 4,
+                }}
+              >
+                <Sparkles className="w-3 h-3" /> Draft with AI
+              </button>
+            </div>
             <textarea
               style={{ ...inputStyle, minHeight: 52, resize: 'vertical' }}
               placeholder="How will the treatment be executed? Who owns which step?"
@@ -650,6 +688,43 @@ function RiskForm({ initial, defaultClientId, clients, appetiteThreshold, onSave
           </button>
         </div>
       </motion.div>
+
+      {/* AI drafter for treatment description — opens overlaid on the form
+          modal. AiPanel uses createPortal so it sits above this dialog
+          regardless of z-index quirks. */}
+      {draftingTreatment && aiSettings.model && (
+        <Suspense fallback={null}>
+          <AiPanel
+            title="Draft treatment plan"
+            subtitle={form.name || 'New risk'}
+            model={aiSettings.model}
+            baseUrl={aiSettings.baseUrl}
+            prompt={riskTreatmentPlanPrompt(
+              {
+                id: initial?.id ?? 'draft',
+                name: form.name,
+                description: form.description,
+                category: form.category,
+                likelihood: form.likelihood,
+                impact: form.impact,
+                score: form.likelihood * form.impact,
+                treatment: form.treatment,
+                owner: form.owner,
+                dueDate: form.dueDate,
+                status: form.status,
+                clientId: form.clientId,
+                cia: form.cia,
+              },
+              { client: clients.find(c => c.id === form.clientId) },
+            )}
+            maxTokens={1000}
+            outputKind="prose"
+            onAccept={text => field('treatmentDescription', text)}
+            acceptLabel="Use this draft"
+            onClose={() => setDraftingTreatment(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -12,7 +12,7 @@
  */
 
 import type { AuditCheck, AuditReport, SeverityLevel } from '../../data/auditTypes';
-import type { GapAnalysisSession, ManagementClause, AnnexAControl, Client } from '../../data/types';
+import type { GapAnalysisSession, ManagementClause, AnnexAControl, Client, RiskItem } from '../../data/types';
 import type { Deliverable } from '../../data/implementationData';
 
 interface ClientContext {
@@ -318,6 +318,113 @@ export function remediationSnippetPrompt(
     check.result?.recommendation ? `Standard remediation guidance: ${check.result.recommendation}` : '',
     ctx.client?.name ? `\nTarget site context: ${ctx.client.name}` : '',
     '\nGenerate the fix now.',
+  ].filter(Boolean).join('\n');
+
+  return { system, user };
+}
+
+// ─── Sprint 13 / Pack 1: Drafter suite ───────────────────────────────────────
+//
+// These builders extend the same {system, user} contract as the original
+// three. They live in this file rather than a separate module to keep prompt
+// drift visible — every prompt is grep-able from one location.
+
+/**
+ * Statement of Applicability drafter — turns a gap-analysis session into the
+ * SoA section text that every ISO 27001 audit needs. The output is per-control
+ * rationale + applicability decision, not an executive narrative — that's
+ * what `gapNarrativePrompt` produces. Two distinct deliverables.
+ *
+ * The user's existing `GapAnalysisSession.items` carry the per-clause/control
+ * compliance status; the SoA needs the *applicability* decision (apply,
+ * exclude with justification) which Claude derives from the status + the
+ * client context. The drafter is a starting point — the consultant always
+ * tunes the justifications before signing.
+ */
+export function statementOfApplicabilityPrompt(
+  session: GapAnalysisSession,
+  controls: AnnexAControl[],
+  ctx: ClientContext,
+): { system: string; user: string } {
+  const system = [
+    'You are a senior ISO 27001 lead consultant drafting the Statement of Applicability section of an ISMS.',
+    'For each Annex A control listed below, output:',
+    '  - The control id and title',
+    '  - "Applicable: Yes" or "Applicable: No" (justify either way)',
+    '  - 2–3 sentences of rationale tied to the client\'s context',
+    '  - If applicable, the implementation status from the gap analysis',
+    'Format the whole output as markdown with one ## heading per control.',
+    'UK English. Formal but readable. No fabricated citations or made-up evidence.',
+    'When the gap analysis lists a control as Non-Compliant, mark it Applicable: Yes and note the gap honestly.',
+    'When a control is plausibly Not Applicable for this client (e.g. cryptography controls for a paper-based process), mark it Applicable: No and justify in one sentence.',
+    'No preamble. Start directly with the first control heading.',
+    'This is a starting point — the consultant will edit before signing. Tone: confident first draft, not finished policy.',
+  ].join('\n');
+
+  // Resolve title for each item that's a control. Clauses don't appear in
+  // an SoA; filter them out.
+  const lookupTitle = (id: string): string =>
+    controls.find(c => c.id === id)?.title ?? id;
+
+  // Group by status to give Claude a tidy structured input. Limit to 30
+  // controls so we don't blow the context window — the drafter is meant
+  // for "the gaps that matter", not the entire 93-control catalogue.
+  const lines = session.items
+    .filter(i => i.itemType === 'control')
+    .slice(0, 30)
+    .map(i => `- ${i.itemId} ${lookupTitle(i.itemId)} — ${i.status}${i.notes ? ` — ${i.notes}` : ''}`)
+    .join('\n');
+
+  const user = [
+    `Session: ${session.name}`,
+    ctx.client?.name      ? `Client: ${ctx.client.name}`        : '',
+    ctx.client?.industry  ? `Industry: ${ctx.client.industry}`  : '',
+    ctx.client?.notes     ? `Engagement notes: ${ctx.client.notes}` : '',
+    '',
+    'Annex A controls assessed in this gap analysis:',
+    lines || '(none recorded)',
+    '',
+    'Draft the SoA section now.',
+  ].filter(Boolean).join('\n');
+
+  return { system, user };
+}
+
+/**
+ * Risk treatment plan drafter — for a single RiskItem, drafts the treatment
+ * paragraph that lands in `treatmentDescription`. Keeps to the chosen
+ * treatment (Mitigate / Accept / Transfer / Avoid) and grounds the actions
+ * in the risk's context.
+ */
+export function riskTreatmentPlanPrompt(
+  risk: RiskItem,
+  ctx: ClientContext,
+): { system: string; user: string } {
+  const system = [
+    'You are a senior risk consultant drafting a risk treatment plan for an ISO 27001 register entry.',
+    'Output 3–5 short paragraphs of plain English covering:',
+    '  1. A one-sentence framing of the risk in business language',
+    '  2. The chosen treatment and why it fits this risk\'s likelihood × impact profile',
+    '  3. Concrete actions: what to do, in what order, owned by whom',
+    '  4. How success will be measured (a specific signal, not "review periodically")',
+    '  5. Residual risk note: what remains after treatment',
+    'UK English. Plain text — no markdown, no headings, no bullets unless absolutely necessary.',
+    'Stay grounded in the risk\'s actual fields. Do not invent facts about the client.',
+    'No preamble. Start with the framing sentence.',
+  ].join('\n');
+
+  const user = [
+    `Risk name: ${risk.name}`,
+    `Description: ${risk.description || '(none)'}`,
+    `Category: ${risk.category}`,
+    `Likelihood × Impact: ${risk.likelihood} × ${risk.impact} = ${risk.score}`,
+    `Chosen treatment: ${risk.treatment}`,
+    risk.owner ? `Owner: ${risk.owner}` : '',
+    risk.cia?.length ? `CIA properties affected: ${risk.cia.join(', ')}` : '',
+    ctx.client?.name ? `Client: ${ctx.client.name}` : '',
+    ctx.client?.industry ? `Industry: ${ctx.client.industry}` : '',
+    '',
+    'Draft the treatment plan now.',
   ].filter(Boolean).join('\n');
 
   return { system, user };

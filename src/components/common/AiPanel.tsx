@@ -40,6 +40,16 @@ export interface AiPanelProps {
   onClose: () => void;
   /** Renders prose vs monospace code. */
   outputKind?: 'prose' | 'code';
+  /**
+   * Sprint 13 Pack 1 — when provided, the modal renders a primary "Use this
+   * draft" (or `acceptLabel`) button that fires `onAccept(text)` and then
+   * closes the panel. Lets the SoA / Risk treatment / future drafters write
+   * their output straight into the freetext field of the calling page,
+   * skipping copy/paste. Without it, behaviour is unchanged (copy + close).
+   */
+  onAccept?: (text: string) => void;
+  /** Label for the accept button. Defaults to "Use this draft". */
+  acceptLabel?: string;
 }
 
 export default function AiPanel({
@@ -52,6 +62,8 @@ export default function AiPanel({
   temperature,
   onClose,
   outputKind = 'prose',
+  onAccept,
+  acceptLabel = 'Use this draft',
 }: AiPanelProps) {
   const [output, setOutput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -270,14 +282,31 @@ export default function AiPanel({
               disabled={!output || streaming}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
               style={{
-                background: copied ? 'var(--color-status-green, #059669)' : '#00D9A3',
-                color: '#1A2332',
-                border: 'none',
+                // When `onAccept` is wired, Copy demotes to a secondary action —
+                // the primary CTA is "Use this draft". Without onAccept, Copy
+                // stays the primary mint button as before.
+                background: onAccept
+                  ? 'var(--color-surface)'
+                  : copied ? 'var(--color-status-green, #059669)' : '#00D9A3',
+                color: onAccept ? 'var(--color-text-secondary)' : '#1A2332',
+                border: onAccept ? '1px solid var(--color-border)' : 'none',
               }}
             >
               {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
               {copied ? 'Copied' : 'Copy'}
             </button>
+            {onAccept && (
+              <button
+                type="button"
+                onClick={() => { onAccept(output); onClose(); }}
+                disabled={!output || streaming}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+                style={{ background: '#00D9A3', color: '#1A2332', border: 'none' }}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {acceptLabel}
+              </button>
+            )}
           </div>
         </div>
       </div>
