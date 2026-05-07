@@ -20,7 +20,7 @@ export default function QuickReference() {
       {referenceCards.map(card => {
         const isExpanded = expandedCards.has(card.id);
         return (
-          <div key={card.id} className="border border-border rounded-lg bg-surface overflow-hidden">
+          <div key={card.id} className="glass-tile overflow-hidden">
             <button
               onClick={() => toggle(card.id)}
               className="w-full flex items-start gap-3 px-4 py-3 hover:bg-surface-alt transition-colors text-left"

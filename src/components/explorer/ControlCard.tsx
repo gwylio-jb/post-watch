@@ -26,7 +26,7 @@ export default function ControlCard({ control, onAddToCheatsheet, compact, force
   }, [forceExpanded]);
 
   return (
-    <div className="border border-border rounded-lg bg-surface hover:border-accent/30 transition-colors">
+    <div className="glass-tile hover:border-accent/30 transition-colors">
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-start gap-3 p-3 text-left"

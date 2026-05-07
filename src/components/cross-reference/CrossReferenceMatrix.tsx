@@ -95,7 +95,7 @@ export default function CrossReferenceMatrix({ controls, clauses }: CrossReferen
 
       {viewMode === 'control-clause' && (
         <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1 max-h-[70vh] overflow-y-auto border border-border rounded-lg bg-surface">
+          <div className="glass-tile space-y-1 max-h-[70vh] overflow-y-auto">
             {filteredRefs.map(ref => {
               const ctrl = controls.find(c => c.id === ref.controlId);
               return (
@@ -110,7 +110,7 @@ export default function CrossReferenceMatrix({ controls, clauses }: CrossReferen
               );
             })}
           </div>
-          <div className="bg-surface border border-border rounded-lg p-4">
+          <div className="glass-tile p-4">
             {selectedRef && selectedCtrl ? (
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-text-primary">
@@ -154,7 +154,7 @@ export default function CrossReferenceMatrix({ controls, clauses }: CrossReferen
 
       {viewMode === 'control-control' && (
         <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1 max-h-[70vh] overflow-y-auto border border-border rounded-lg bg-surface">
+          <div className="glass-tile space-y-1 max-h-[70vh] overflow-y-auto">
             {filteredRefs.map(ref => {
               const ctrl = controls.find(c => c.id === ref.controlId);
               return (
@@ -170,7 +170,7 @@ export default function CrossReferenceMatrix({ controls, clauses }: CrossReferen
               );
             })}
           </div>
-          <div className="bg-surface border border-border rounded-lg p-4">
+          <div className="glass-tile p-4">
             {selectedRef && selectedCtrl ? (
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-text-primary">
