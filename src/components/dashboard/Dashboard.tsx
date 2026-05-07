@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { ScanSearch, BarChart3, AlertTriangle, FileText, ArrowRight, Zap, X, Sparkles } from 'lucide-react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { AuditReport } from '../../data/auditTypes';
 import type { GapAnalysisSession } from '../../data/types';
 import Gauge from '../charts/Gauge';
@@ -397,13 +398,25 @@ const ROADMAP_ITEMS: { title: string; description: string }[] = [
 ];
 
 function RoadmapModal({ onClose }: { onClose: () => void }) {
+  const trapRef = useFocusTrap<HTMLDivElement>(true);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-6"
       style={{ background: 'rgba(10,14,21,0.78)', backdropFilter: 'blur(6px)' }}
       onClick={onClose}
+      role="presentation"
     >
       <div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="roadmap-modal-title"
         className="rounded-2xl overflow-hidden max-w-2xl w-full"
         style={{ background: 'var(--bg-2)', border: '1px solid var(--line)', boxShadow: '0 20px 60px rgba(0,0,0,0.4)', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
         onClick={e => e.stopPropagation()}
@@ -416,7 +429,7 @@ function RoadmapModal({ onClose }: { onClose: () => void }) {
                 V2.1 roadmap
               </span>
             </div>
-            <h2 style={{ fontFamily: 'var(--font-redesign)', fontWeight: 700, fontSize: 20, color: 'var(--ink-1)' }}>
+            <h2 id="roadmap-modal-title" style={{ fontFamily: 'var(--font-redesign)', fontWeight: 700, fontSize: 20, color: 'var(--ink-1)' }}>
               AI-powered security intelligence
             </h2>
             <p style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 4 }}>

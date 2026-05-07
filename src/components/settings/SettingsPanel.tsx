@@ -15,6 +15,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ExternalLink, Eye, EyeOff, Save, CheckCircle2, Sparkles, RefreshCw, Copy, AlertCircle } from 'lucide-react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { AuditApiKeys, AiSettings } from '../../data/auditTypes';
 import { openExternal } from '../../utils/openExternal';
 import { listModels, ping, RECOMMENDED_MODEL, type OllamaModel } from '../../utils/ai/ollama';
@@ -190,6 +191,10 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
     display: 'grid', placeItems: 'center',
   };
 
+  // Trap focus inside the modal — Escape-to-close already lives in an
+  // earlier useEffect.
+  const trapRef = useFocusTrap<HTMLDivElement>(true);
+
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-6"
@@ -198,6 +203,7 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
       role="presentation"
     >
       <div
+        ref={trapRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-panel-title"

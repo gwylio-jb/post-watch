@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Edit2, Trash2, X, Users, Target, ChevronDown, FileText } from 'lucide-react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { managementClauses } from '../../data/clauses';
 import { allControls } from '../../data/controls';
 import type {
@@ -406,13 +407,26 @@ function RiskForm({ initial, defaultClientId, clients, appetiteThreshold, onSave
     fontSize: '13px', outline: 'none', boxSizing: 'border-box',
   };
 
+  // Trap focus inside the form while open + close on Escape.
+  const trapRef = useFocusTrap<HTMLDivElement>(true);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: 'rgba(26,35,50,0.6)', backdropFilter: 'blur(4px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      role="presentation"
     >
       <motion.div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="risk-form-title"
         className="card-elevated w-full max-w-xl mx-4"
         style={{ maxHeight: '90vh', overflowY: 'auto', padding: '28px' }}
         initial={{ opacity: 0, scale: 0.96, y: 12 }}
@@ -421,10 +435,10 @@ function RiskForm({ initial, defaultClientId, clients, appetiteThreshold, onSave
         transition={{ duration: 0.2 }}
       >
         <div className="flex items-center justify-between mb-6">
-          <h2 className="font-display font-bold text-lg" style={{ color: 'var(--color-text-primary)' }}>
+          <h2 id="risk-form-title" className="font-display font-bold text-lg" style={{ color: 'var(--color-text-primary)' }}>
             {initial ? 'Edit risk' : 'Add risk'}
           </h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-muted)' }}>
+          <button onClick={onClose} className="p-1.5 rounded-lg" style={{ color: 'var(--color-text-muted)' }} aria-label="Close">
             <X className="w-4 h-4" />
           </button>
         </div>

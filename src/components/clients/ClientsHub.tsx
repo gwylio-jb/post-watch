@@ -13,9 +13,10 @@
  * uses redesign tokens. Existing CRUD logic is unchanged.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Building2, Pencil, Trash2, Image as ImageIcon, X } from 'lucide-react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { Client } from '../../data/types';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -117,13 +118,27 @@ function ClientForm({ initial, onSave, onClose }: ClientFormProps) {
     });
   };
 
+  // Trap focus inside the form while it's open + close on Escape — see
+  // useFocusTrap for the implementation rationale.
+  const trapRef = useFocusTrap<HTMLFormElement>(true);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-6"
       style={{ background: 'rgba(10,14,21,0.78)', backdropFilter: 'blur(6px)' }}
       onClick={onClose}
+      role="presentation"
     >
       <form
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="client-form-title"
         className="bubble"
         style={{
           width: '100%', maxWidth: 520,
@@ -136,7 +151,7 @@ function ClientForm({ initial, onSave, onClose }: ClientFormProps) {
         <div className="card-head">
           <div>
             <span className="kicker">{initial ? 'edit client' : 'new client'}</span>
-            <h3>{initial ? 'Edit client' : 'Add client'}</h3>
+            <h3 id="client-form-title">{initial ? 'Edit client' : 'Add client'}</h3>
           </div>
           <button
             type="button"
