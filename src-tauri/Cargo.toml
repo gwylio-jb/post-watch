@@ -21,11 +21,13 @@ tauri-build = { version = "2.5.6", features = [] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-# `devtools` feature enables Cmd+Option+I in release builds. Was off by
-# default; enabled now for the v2.4.x debug cycle so we can diagnose user-
-# reported render issues that don't reproduce in dev. Roll back to `[]`
-# before a stable release for security (devtools exposes app internals).
-tauri = { version = "2.10.3", features = ["devtools"] }
+# DevTools intentionally OFF in release builds — exposes app internals
+# (localStorage with potentially-sensitive client data, signed update
+# verification flow, etc.) to anyone holding the binary. Re-enable
+# temporarily by adding "devtools" to features when diagnosing user-
+# reported render bugs that don't reproduce in dev (was on for v2.4.3
+# and v2.4.4 to isolate the hero-clipping bug; rolled back in v2.4.5).
+tauri = { version = "2.10.3", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-http = "2"
 tauri-plugin-opener = "2"
