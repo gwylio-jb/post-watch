@@ -1,0 +1,58 @@
+name: 'ci'
+
+# Runs on every push to main and every pull request. Lightweight gate that
+# catches type, lint, test and build regressions before they reach the
+# auto-update channel (which is driven by the release.yml workflow on tags).
+#
+# Intentionally Linux-only — the Tauri desktop bundle still gets built per-OS
+# in release.yml. CI here is about the JS/TS layer.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+# Cancel in-flight runs on the same ref when a new commit arrives.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: typecheck + lint + test + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24            # Match the Node our local dev uses; 25 has the localStorage stub quirk.
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Strict mode is enabled in tsconfig.app.json — this is the same
+      # check the build performs but cheaper to run first.
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # NOTE on lint: `npm run lint` currently surfaces ~80 pre-existing
+      # warnings/errors in the app code (no-explicit-any, no-unused-vars,
+      # etc.). Adding it as a hard CI gate today would block every PR until
+      # the backlog is paid down. Leaving it out for now — paying it down
+      # is a tracked follow-up (Sprint 12 close-out item). To run locally:
+      #     npm run lint
+      # Once the backlog hits zero, uncomment the step below.
+      # - name: Lint
+      #   run: npm run lint
+
+      - name: Test
+        run: npm run test:run
+
+      # Final smoke — does the app still bundle? Catches anything tsc
+      # missed (Vite-specific transforms, asset paths, etc.).
+      - name: Build
+        run: npm run build
