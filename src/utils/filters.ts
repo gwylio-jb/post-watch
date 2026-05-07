@@ -26,7 +26,7 @@ export function filterControls(controls: AnnexAControl[], filters: ControlFilter
     if (filters.controlType.length && !filters.controlType.some(t => c.controlType.includes(t))) return false;
     if (filters.securityProperty.length && !filters.securityProperty.some(p => c.securityProperties.includes(p))) return false;
     if (filters.cybersecurityConcept.length && !filters.cybersecurityConcept.some(cc => c.cybersecurityConcepts.includes(cc))) return false;
-    if (filters.securityDomain.length && !filters.securityDomain.some(d => c.securityDomains.includes(d as any))) return false;
+    if (filters.securityDomain.length && !filters.securityDomain.some(d => c.securityDomains.includes(d))) return false;
     if (filters.newIn2022 !== null && c.isNew2022 !== filters.newIn2022) return false;
     if (filters.search) {
       const q = filters.search.toLowerCase();

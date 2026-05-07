@@ -14,7 +14,14 @@ interface ControlCardProps {
 export default function ControlCard({ control, onAddToCheatsheet, compact, forceExpanded }: ControlCardProps) {
   const [expanded, setExpanded] = useState(false);
 
+  // Sync local state when the parent flags this card as force-expanded
+  // (search target, navigation deep-link). One-way: rising edge only — the
+  // user can still collapse the card afterward by clicking the chevron, and
+  // forceExpanded going back to false doesn't yank the card closed.
+  // Pure derivation (`forceExpanded || internal`) was tried and rejected: it
+  // breaks the user's ability to collapse a force-expanded card.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (forceExpanded) setExpanded(true);
   }, [forceExpanded]);
 

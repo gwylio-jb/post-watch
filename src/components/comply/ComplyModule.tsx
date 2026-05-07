@@ -26,7 +26,10 @@ export default function ComplyModule({ clauses, controls }: ComplyModuleProps) {
 
   // Hero stats — pulled live from gap sessions to anchor the page in real data.
   const [gapSessions] = useLocalStorage<GapAnalysisSession[]>('gap-sessions', []);
-  const safeSessions = Array.isArray(gapSessions) ? gapSessions : [];
+  const safeSessions = useMemo(
+    () => Array.isArray(gapSessions) ? gapSessions : [],
+    [gapSessions],
+  );
 
   const stats = useMemo(() => {
     let compliant = 0, total = 0;

@@ -6,7 +6,10 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // `src-tauri/target/` is the Rust build output — including codegen'd JS
+  // asset files that aren't part of our source. Linting them produces ~80
+  // false positives and slows the run by an order of magnitude.
+  globalIgnores(['dist', 'src-tauri/target', 'coverage']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

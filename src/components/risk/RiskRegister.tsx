@@ -654,6 +654,11 @@ function AppetitePanel({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<string>(threshold?.toString() ?? '');
 
+  // Sync draft when the parent's threshold value changes (e.g. user switched
+  // client scope). Synchronous setState in effect is intentional here — we
+  // want the input to reflect the new client's value on the very next render,
+  // not after a paint+render cascade.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setDraft(threshold?.toString() ?? ''); }, [threshold]);
 
   return (
@@ -839,8 +844,10 @@ export default function RiskRegister() {
     {}
   );
 
-  const safeRisks: RiskItem[] = Array.isArray(risks) ? risks : [];
-  const safeClients: Client[] = Array.isArray(clients) ? clients : [];
+  // useMemo — stable identity for the empty-fallback array so downstream
+  // useMemo dependencies don't churn every render.
+  const safeRisks = useMemo<RiskItem[]>(() => Array.isArray(risks) ? risks : [], [risks]);
+  const safeClients = useMemo<Client[]>(() => Array.isArray(clients) ? clients : [], [clients]);
 
   // The scope selector always includes "Unassigned" so pre-V2.1 data stays
   // reachable even if the user deleted every other client.

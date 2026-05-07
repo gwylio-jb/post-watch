@@ -269,7 +269,8 @@ export default function ClientsHub() {
   const [editing, setEditing] = useState<Client | null>(null);
   const [formOpen, setFormOpen] = useState(false);
 
-  const list: Client[] = Array.isArray(clients) ? clients : [];
+  // useMemo for stable identity — the consuming useMemos depend on `list`.
+  const list = useMemo<Client[]>(() => Array.isArray(clients) ? clients : [], [clients]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

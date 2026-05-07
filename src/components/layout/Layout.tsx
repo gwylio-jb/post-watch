@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import type { AppSection } from '../../data/types';
@@ -40,10 +39,9 @@ export default function Layout({
   // The redesign drops "collapsible sidebar" — the column is always 240px.
   // We accept the prop for backwards-compat but ignore the value.
 
-  // Track theme via state so TopBar's toggle re-renders the icon.
-  // Mirrors the .dark / .theme-* classes on <html>.
-  const [, force] = useState(0);
-  useEffect(() => { force(n => n + 1); }, [theme]);
+  // Theme prop is consumed directly in JSX below — React re-renders on prop
+  // change without help. The previous force-update effect was dead code from
+  // an earlier iteration; removing it also clears a set-state-in-effect warning.
 
   return (
     <div className={`app-shell theme-${theme}`}>

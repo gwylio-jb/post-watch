@@ -39,15 +39,14 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
-      # NOTE on lint: `npm run lint` currently surfaces ~80 pre-existing
-      # warnings/errors in the app code (no-explicit-any, no-unused-vars,
-      # etc.). Adding it as a hard CI gate today would block every PR until
-      # the backlog is paid down. Leaving it out for now — paying it down
-      # is a tracked follow-up (Sprint 12 close-out item). To run locally:
-      #     npm run lint
-      # Once the backlog hits zero, uncomment the step below.
-      # - name: Lint
-      #   run: npm run lint
+      # Sprint 12 cleared the backlog (was ~80 errors, mostly from the
+      # unignored src-tauri/target/ build output plus a handful of real
+      # issues in the app: no-explicit-any in filter unions, set-state-in-
+      # effect cascades, immutability violations in render-time mutation
+      # of `let off`/`let offset`, sync-state anti-patterns). The gate is
+      # on now — keep it on.
+      - name: Lint
+        run: npm run lint
 
       - name: Test
         run: npm run test:run

@@ -30,6 +30,12 @@ export default function ClauseExplorer({ clauses, targetId, onTargetConsumed }: 
     const cat = categoryForClause(targetId);
     if (!cat) return;
 
+    // Synchronous setState here is intentional: we need the accordion to
+    // expand BEFORE the 250ms timer triggers scrollIntoView, otherwise the
+    // row isn't in the DOM yet and the scroll lands on the collapsed header.
+    // The set-state-in-effect rule flags this as a cascading render, which
+    // is the literal goal — render the expanded state, then scroll into it.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setExpandedCategories(prev => new Set([...prev, cat]));
     setExpandedClauses(prev => new Set([...prev, targetId]));
 
@@ -51,7 +57,7 @@ export default function ClauseExplorer({ clauses, targetId, onTargetConsumed }: 
   const toggleCategory = (cat: string) => {
     setExpandedCategories(prev => {
       const next = new Set(prev);
-      next.has(cat) ? next.delete(cat) : next.add(cat);
+      if (next.has(cat)) next.delete(cat); else next.add(cat);
       return next;
     });
   };
@@ -59,7 +65,7 @@ export default function ClauseExplorer({ clauses, targetId, onTargetConsumed }: 
   const toggleClause = (id: string) => {
     setExpandedClauses(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   };

@@ -38,7 +38,17 @@ export default function Donut({ segments, total, radius = 52, strokeWidth = 14 }
   const c = 2 * Math.PI * r;
   const sum = total ?? segments.reduce((a, s) => a + s.value, 0) ?? 1;
 
-  let off = 0;
+  // Pre-compute the running offset for each segment instead of mutating a
+  // `let off` during render. Render-time reassignment trips React Compiler-
+  // aware lint rules (immutability) and would prevent React 19 auto-
+  // memoisation from kicking in on this component.
+  // segmentOffsets[i] = sum of arc lengths for segments[0..i-1].
+  const segmentOffsets = segments.map((_seg, i) => {
+    let acc = 0;
+    for (let j = 0; j < i; j++) acc += (segments[j].value / sum) * c;
+    return acc;
+  });
+
   return (
     <>
       <svg
@@ -53,8 +63,7 @@ export default function Donut({ segments, total, radius = 52, strokeWidth = 14 }
         {segments.map((s, i) => {
           const len = (s.value / sum) * c;
           const dash = `${len} ${c - len}`;
-          const dashoff = -off;
-          off += len;
+          const dashoff = -segmentOffsets[i];
           return (
             <circle
               key={i}

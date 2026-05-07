@@ -1,6 +1,13 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Grid3X3, List, Filter } from 'lucide-react';
-import type { AnnexAControl } from '../../data/types';
+import type {
+  AnnexAControl,
+  ControlCategory,
+  ControlType,
+  SecurityProperty,
+  CybersecurityConcept,
+  SecurityDomain,
+} from '../../data/types';
 import { filterControls, emptyFilters, type ControlFilters } from '../../utils/filters';
 import ControlCard from './ControlCard';
 import FilterPanel from '../shared/FilterPanel';
@@ -21,10 +28,14 @@ export default function ControlExplorer({ controls, onAddToCheatsheet, targetId,
 
   const filtered = useMemo(() => filterControls(controls, filters), [controls, filters]);
 
-  // When targetId changes, clear filters (so the item is visible), expand it, scroll to it
+  // When targetId changes, clear filters (so the item is visible), expand it, scroll to it.
+  // The setState calls are intentionally synchronous: the row needs to be
+  // rendered (filters cleared, accordion open) before scrollIntoView runs,
+  // otherwise the scroll lands on a collapsed/filtered-out row. set-state-
+  // in-effect flags the cascade — that's literally what we want here.
   useEffect(() => {
     if (!targetId) return;
-    // Clear filters so the target is guaranteed to be in the list
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFilters(emptyFilters);
     setExpandedIds(prev => new Set([...prev, targetId]));
 
@@ -50,36 +61,40 @@ export default function ControlExplorer({ controls, onAddToCheatsheet, targetId,
     filters.newIn2022 !== null ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
+  // FilterPanel passes back `string[]`; we know the strings are members of
+  // the corresponding union type because the options list is the union's
+  // value set verbatim. The cast keeps each `setFilters` call type-safe at
+  // the field level — no `any` needed.
   const filterGroups = [
     {
       label: 'Category',
-      options: ['Organisational', 'People', 'Physical', 'Technological'],
+      options: ['Organisational', 'People', 'Physical', 'Technological'] satisfies ControlCategory[],
       selected: filters.category,
-      onChange: (s: string[]) => setFilters(f => ({ ...f, category: s as any })),
+      onChange: (s: string[]) => setFilters(f => ({ ...f, category: s as ControlCategory[] })),
     },
     {
       label: 'Control Type',
-      options: ['Preventive', 'Detective', 'Corrective'],
+      options: ['Preventive', 'Detective', 'Corrective'] satisfies ControlType[],
       selected: filters.controlType,
-      onChange: (s: string[]) => setFilters(f => ({ ...f, controlType: s as any })),
+      onChange: (s: string[]) => setFilters(f => ({ ...f, controlType: s as ControlType[] })),
     },
     {
       label: 'Security Property',
-      options: ['Confidentiality', 'Integrity', 'Availability'],
+      options: ['Confidentiality', 'Integrity', 'Availability'] satisfies SecurityProperty[],
       selected: filters.securityProperty,
-      onChange: (s: string[]) => setFilters(f => ({ ...f, securityProperty: s as any })),
+      onChange: (s: string[]) => setFilters(f => ({ ...f, securityProperty: s as SecurityProperty[] })),
     },
     {
       label: 'Cybersecurity Concept',
-      options: ['Identify', 'Protect', 'Detect', 'Respond', 'Recover'],
+      options: ['Identify', 'Protect', 'Detect', 'Respond', 'Recover'] satisfies CybersecurityConcept[],
       selected: filters.cybersecurityConcept,
-      onChange: (s: string[]) => setFilters(f => ({ ...f, cybersecurityConcept: s as any })),
+      onChange: (s: string[]) => setFilters(f => ({ ...f, cybersecurityConcept: s as CybersecurityConcept[] })),
     },
     {
       label: 'Security Domain',
-      options: ['Governance and Ecosystem', 'Protection', 'Defence', 'Resilience'],
+      options: ['Governance and Ecosystem', 'Protection', 'Defence', 'Resilience'] satisfies SecurityDomain[],
       selected: filters.securityDomain,
-      onChange: (s: string[]) => setFilters(f => ({ ...f, securityDomain: s as any })),
+      onChange: (s: string[]) => setFilters(f => ({ ...f, securityDomain: s as SecurityDomain[] })),
     },
   ];
 

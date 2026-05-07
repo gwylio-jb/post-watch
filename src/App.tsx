@@ -56,7 +56,6 @@ export default function App() {
   useEffect(() => {
     const res = runClientMigration();
     if (res.ran) {
-      // eslint-disable-next-line no-console
       console.info('[post-watch] V2.1 migration ran:', res.counts);
     }
   }, []);
@@ -133,7 +132,11 @@ export default function App() {
     setActiveSection('post_scan');
   }, [setActiveSection]);
 
-  const handleAddToCheatsheet = useCallback((_controlId: string) => {
+  // Param intentionally unconsumed for now — the cheatsheet builder reads
+  // its target from localStorage rather than a prop, so the controlId only
+  // needs to fire the navigation. Keeping the signature so a future deep-
+  // link can consume it without a breaking change.
+  const handleAddToCheatsheet = useCallback(() => {
     setActiveSection('post_comply');
   }, [setActiveSection]);
 

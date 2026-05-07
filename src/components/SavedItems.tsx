@@ -22,7 +22,9 @@ export default function SavedItems() {
   const safeCheat = Array.isArray(cheatsheets) ? cheatsheets : [];
   const safeGap = Array.isArray(gapSessions) ? gapSessions : [];
   const safeImpl = Array.isArray(implSessions) ? implSessions : [];
-  const safeClients = Array.isArray(clients) ? clients : [];
+  // useMemo so the empty-array fallback keeps stable identity across
+  // renders — without it, every consuming useMemo's deps churn.
+  const safeClients = useMemo(() => Array.isArray(clients) ? clients : [], [clients]);
 
   const pickerClients = useMemo<Client[]>(() => {
     if (safeClients.some(c => c.id === UNASSIGNED_CLIENT_ID)) return safeClients;

@@ -149,7 +149,7 @@ export async function generate(opts: GenerateOptions): Promise<string> {
       body: JSON.stringify(body),
       signal: opts.signal,
     });
-  } catch (e) {
+  } catch {
     if (opts.signal?.aborted) throw new OllamaError('Aborted', 'aborted');
     throw new OllamaError(
       'Could not reach Ollama at ' + baseUrl + '. Make sure it is running.',

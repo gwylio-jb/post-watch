@@ -30,19 +30,28 @@ export default function ComplianceRing({ segments, size = 120 }: ComplianceRingP
   const circumference = 2 * Math.PI * r;
   const gap = 3; // gap between segments in px
 
-  // Build segment arcs
-  let offset = 0; // offset in degrees, starting from top (−90°)
-  const arcs = segments.map(seg => {
+  // Build segment arcs. Pre-compute each segment's start offset via reduce
+  // rather than mutating a `let offset` in render — keeps React Compiler-
+  // aware lint rules happy and lets auto-memoisation kick in.
+  const arcs = segments.reduce<{
+    label: string; value: number; color: string;
+    arcLen: number; dashOffset: number;
+  }[]>((acc, seg) => {
+    const prevTotal = acc.length === 0
+      ? 0
+      : acc.reduce((sum, a) => sum + (a.arcLen + gap), 0);
     const pct = seg.value / total;
     const arcLen = circumference * pct;
-    const startOffset = offset;
-    offset += circumference * pct;
-    return {
+    acc.push({
       ...seg,
       arcLen: Math.max(arcLen - gap, 0),
-      dashOffset: -(startOffset),
-    };
-  });
+      // Note: prevTotal already accounts for prior arcs + gaps; this matches
+      // the original "offset += circumference * pct" semantics because each
+      // entry contributed (arcLen-gap)+gap = arcLen.
+      dashOffset: -prevTotal,
+    });
+    return acc;
+  }, []);
 
   return (
     <div className="flex flex-col items-center gap-3">

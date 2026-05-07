@@ -221,9 +221,11 @@ export default function ReportHub() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
-  const safeReports: AuditReport[] = Array.isArray(savedReports) ? savedReports : [];
-  const safeSessions: GapAnalysisSession[] = Array.isArray(gapSessions) ? gapSessions : [];
-  const safeClients: Client[] = Array.isArray(clients) ? clients : [];
+  // useMemo — keeps the empty-fallback array identity stable across renders
+  // so every downstream useMemo doesn't churn on every parent re-render.
+  const safeReports = useMemo<AuditReport[]>(() => Array.isArray(savedReports) ? savedReports : [], [savedReports]);
+  const safeSessions = useMemo<GapAnalysisSession[]>(() => Array.isArray(gapSessions) ? gapSessions : [], [gapSessions]);
+  const safeClients = useMemo<Client[]>(() => Array.isArray(clients) ? clients : [], [clients]);
 
   // Scope selector always offers Unassigned so legacy untagged data stays reachable.
   const pickerClients = useMemo<Client[]>(() => {
