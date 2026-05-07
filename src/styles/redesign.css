@@ -394,6 +394,16 @@
   padding: 24px 28px 32px;
   display: flex; flex-direction: column; gap: 20px;
 }
+/* Defense against a v2.4.3-shaped bug recurring. `.page` is a flex column;
+   without this, any direct child whose `min-height` is set explicitly (rather
+   than the default `min-height: auto`) becomes shrinkable below its content
+   size, which combined with `overflow: hidden` on the hero clipped every
+   child below the title. Pinning flex-shrink to 0 means children always
+   render at their natural content height, and the .page itself handles
+   any vertical overflow via its own scroll. */
+.app-shell .page > * {
+  flex-shrink: 0;
+}
 
 /* ============================================================
    Bubble + glass primitives
@@ -479,9 +489,14 @@
   grid-template-columns: 1.4fr 1fr;
   gap: 18px;
   padding: 28px;
-  /* Backstop against any layout collapse in WKWebView — even if children
-     somehow fail to lay out, the hero stays a visible 200px tall. */
-  min-height: 200px;
+  /* No `min-height` here — `.page` is a flex column, and an explicit
+     min-height on a flex child overrides the default `min-height: auto`
+     that protects items from being shrunk below their natural content
+     size. Combined with our `overflow: hidden`, that meant the hero was
+     getting flex-shrunk to the min-height value and clipping every
+     child below the title. The "backstop" we added in v2.4.3 was the
+     bug we were trying to investigate. Letting the hero size to its
+     actual content is correct. */
   border-radius: 28px;
   background:
     radial-gradient(120% 140% at 0% 0%, rgba(0,217,163,0.18), transparent 55%),
