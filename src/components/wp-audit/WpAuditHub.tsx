@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldAlert, Key, ChevronDown, ChevronUp, Globe, Trash2, ExternalLink, Users, Zap } from 'lucide-react';
+import { ShieldAlert, Key, ChevronDown, ChevronUp, Globe, Trash2, ExternalLink, Users, Zap, Layers, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { useScanQueueContext } from '../../hooks/scanQueueContextRef';
 import type { AuditCheck, AuditReport, AuditApiKeys, CheckResult } from '../../data/auditTypes';
 import { runScan, buildCheckCatalogue, normaliseUrl } from '../../utils/audit/scanEngine';
 import { isTauri } from '../../utils/audit/fetchUtil';
@@ -29,6 +30,10 @@ export default function WpAuditHub({ targetReportId, onTargetConsumed }: WpAudit
   const [liveChecks, setLiveChecks] = useState<AuditCheck[]>([]);
   const [completedReport, setCompletedReport] = useState<AuditReport | null>(null);
   const [showApiKeys, setShowApiKeys] = useState(false);
+  // Sprint 13 Pack 2 — bulk scan UI + queue display.
+  const [showBulk, setShowBulk] = useState(false);
+  const [bulkInput, setBulkInput] = useState('');
+  const queue = useScanQueueContext();
 
   const [savedReports, setSavedReports] = useLocalStorage<AuditReport[]>('wp-audit-reports', []);
   const [apiKeys, setApiKeys] = useLocalStorage<AuditApiKeys>('wp-audit-api-keys', {});
@@ -321,11 +326,72 @@ export default function WpAuditHub({ targetReportId, onTargetConsumed }: WpAudit
               >
                 <Zap className="w-4 h-4" /> Scan
               </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setShowBulk(s => !s)}
+                title="Queue multiple URLs for sequential scanning"
+                style={{ flexShrink: 0, padding: '10px 14px' }}
+              >
+                <Layers className="w-4 h-4" /> Bulk
+              </button>
             </div>
             {(urlError || scanError) && (
               <p style={{ fontSize: 12, color: 'var(--ember)', marginTop: 6, fontFamily: 'var(--font-redesign-mono)' }}>
                 {urlError || scanError}
               </p>
+            )}
+            {/* Bulk-scan inline panel — paste multiple URLs, queue all. */}
+            {showBulk && (
+              <div style={{ marginTop: 12, padding: 14, borderRadius: 12, background: 'var(--glass-bg)', border: '1px solid var(--glass-bd)' }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'var(--font-redesign-mono)', marginBottom: 6 }}>
+                  Multiple URLs (one per line)
+                </label>
+                <textarea
+                  value={bulkInput}
+                  onChange={e => setBulkInput(e.target.value)}
+                  placeholder={'https://example.com\nhttps://another.com\nhttps://third.com'}
+                  rows={5}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: 12,
+                    border: '1px solid var(--line-2)',
+                    background: 'var(--bg-2)',
+                    color: 'var(--ink-1)',
+                    fontSize: 13,
+                    fontFamily: 'var(--font-redesign-mono)',
+                    outline: 'none',
+                    resize: 'vertical',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                  <span style={{ fontSize: 11, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>
+                    Filed under <strong style={{ color: 'var(--ink-1)' }}>{clientsList.find(c => c.id === scanClientId)?.name ?? 'Unassigned'}</strong> — change above
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ marginLeft: 'auto', padding: '6px 14px', fontSize: 12 }}
+                    disabled={!bulkInput.trim()}
+                    onClick={() => {
+                      const urls = bulkInput
+                        .split('\n')
+                        .map(l => l.trim())
+                        .filter(l => l.length > 0)
+                        .map(raw => normaliseUrl(raw));
+                      if (urls.length === 0) return;
+                      queue.enqueue(urls.map(u => ({ targetUrl: u, clientId: scanClientId })));
+                      setBulkInput('');
+                      setShowBulk(false);
+                    }}
+                  >
+                    <Layers className="w-3.5 h-3.5" />
+                    Queue {bulkInput.split('\n').filter(l => l.trim()).length} URL{bulkInput.split('\n').filter(l => l.trim()).length === 1 ? '' : 's'}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 
@@ -423,6 +489,86 @@ export default function WpAuditHub({ targetReportId, onTargetConsumed }: WpAudit
           )}
         </AnimatePresence>
       </section>
+
+      {/* Queue panel — only renders when there's something to show. */}
+      {queue.queue.length > 0 && (
+        <section className="bubble">
+          <div className="card-head">
+            <div>
+              <span className="kicker">post_scan · queue</span>
+              <h3>Batch queue</h3>
+              <div className="desc">
+                {queue.isRunning ? 'Processing one at a time…' : 'Idle.'} {' '}
+                {queue.queue.filter(q => q.status === 'pending').length} pending · {queue.queue.filter(q => q.status === 'done').length} done
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ padding: '6px 12px', fontSize: 12 }}
+              onClick={queue.clearCompleted}
+              disabled={!queue.queue.some(q => q.status === 'done' || q.status === 'failed' || q.status === 'cancelled')}
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Clear finished
+            </button>
+          </div>
+          <div className="scan-list">
+            {queue.queue.map(item => {
+              const statusIcon = item.status === 'running' ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : item.status === 'done'      ? <CheckCircle2 className="w-3.5 h-3.5" />
+                : item.status === 'failed'    ? <XCircle className="w-3.5 h-3.5" />
+                : item.status === 'cancelled' ? <XCircle className="w-3.5 h-3.5" />
+                : null;
+              const statusColor = item.status === 'done'      ? 'var(--mint)'
+                : item.status === 'failed'    ? 'var(--ember)'
+                : item.status === 'cancelled' ? 'var(--ink-3)'
+                : item.status === 'running'   ? 'var(--mint)'
+                : 'var(--ink-3)';
+              return (
+                <div className="scan-row" key={item.id} style={{ gridTemplateColumns: '1fr auto auto auto', cursor: 'default' }}>
+                  <div>
+                    <div className="scan-domain" style={{ wordBreak: 'break-all' }}>{item.targetUrl}</div>
+                    <div className="scan-meta">
+                      {item.error
+                        ? item.error
+                        : item.clientId
+                          ? `client: ${clientsList.find(c => c.id === item.clientId)?.name ?? item.clientId}`
+                          : 'unassigned'}
+                    </div>
+                  </div>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: statusColor, fontFamily: 'var(--font-redesign-mono)', textTransform: 'uppercase' }}>
+                    {statusIcon}
+                    {item.status}
+                  </span>
+                  {item.status === 'done' && item.reportId && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ padding: '4px 10px', fontSize: 11 }}
+                      onClick={() => {
+                        const r = safeReports.find(rr => rr.id === item.reportId);
+                        if (r) handleLoadReport(r);
+                      }}
+                    >
+                      Open
+                    </button>
+                  )}
+                  {(item.status === 'pending' || item.status === 'running') && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ padding: '4px 10px', fontSize: 11 }}
+                      onClick={() => queue.cancel(item.id)}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Saved scans */}
       {safeReports.length > 0 && (

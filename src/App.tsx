@@ -26,8 +26,23 @@ import type { AuditReport } from './data/auditTypes';
 import type { GapAnalysisSession } from './data/types';
 import { deriveAlerts, filterDismissed } from './utils/deriveAlerts';
 import { runMigrations } from './utils/migrations';
+import { ScanQueueProvider } from './hooks/scanQueueContext';
+import { useScanQueueContext } from './hooks/scanQueueContextRef';
+import { useScanScheduler } from './hooks/useScanScheduler';
 
 export default function App() {
+  // Sprint 13 Pack 2 — wrap the whole app in ScanQueueProvider so the queue
+  // runner keeps processing across page changes (single instance via
+  // context). The scheduler tick lives inside AppContent so it can use the
+  // same queue instance via useScanQueueContext.
+  return (
+    <ScanQueueProvider>
+      <AppContent />
+    </ScanQueueProvider>
+  );
+}
+
+function AppContent() {
   const [activeSection, setActiveSection] = useLocalStorage<AppSection>('active-section', 'post_status');
   const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorage('sidebar-collapsed', false);
   const [theme, setTheme] = useLocalStorage<'dark' | 'light'>('theme', 'dark');
@@ -36,6 +51,19 @@ export default function App() {
   // Deep-link target for the WordPress security hub — set by clicking a
   // recent-scan tile on the Dashboard, consumed by WpAuditHub on mount.
   const [targetReportId, setTargetReportId] = useState<string | null>(null);
+
+  // Sprint 13 Pack 2 — wire the scheduler to the queue. When a schedule
+  // fires, enqueue a scan for its domain. Scheduler ticks regardless of
+  // active page; queue runner inside ScanQueueProvider processes whenever
+  // there's work.
+  const scanQueue = useScanQueueContext();
+  useScanScheduler({
+    onFire: schedule => {
+      if (schedule.kind === 'wp-scan') {
+        scanQueue.enqueue([{ targetUrl: `https://${schedule.domain}`, clientId: schedule.clientId }]);
+      }
+    },
+  });
 
   // Alert badge — derived from the SAME logic as the Alerts tab so the
   // count on the sidebar always matches the list inside. Also honours
