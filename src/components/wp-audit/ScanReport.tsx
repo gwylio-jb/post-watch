@@ -1,6 +1,8 @@
 import { useState, lazy, Suspense } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronDown, ChevronRight, RefreshCw, ArrowLeft, Loader2, Sparkles, Wrench, FileText } from 'lucide-react';
+import { ChevronDown, ChevronRight, RefreshCw, ArrowLeft, Loader2, Sparkles, Wrench, FileText, Calendar } from 'lucide-react';
+import { useSchedulerContext } from '../../hooks/scanQueueContextRef';
+import ScheduleDialog from './ScheduleDialog';
 import type { AuditCheck, AuditReport, CheckStatus, SeverityLevel, AiSettings } from '../../data/auditTypes';
 import { CATEGORY_ORDER } from '../../utils/audit/scanEngine';
 import { getExplainer } from '../../data/checkExplainers';
@@ -288,7 +290,18 @@ export default function ScanReport({ report, onRescan, onBack }: ScanReportProps
   // FindingRow's per-finding `aiOpen` so the two never compete for the modal
   // surface — opening one closes whatever's already open.
   const [planAiOpen, setPlanAiOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const aiEnabled = !!ai.model?.trim();
+
+  // Sprint 13 Pack 2 — schedule re-scans for this report's domain.
+  // The scheduler instance is owned by ScanQueueProvider at the App root
+  // (one ticker for the whole app); we just consume addSchedule here.
+  const scheduler = useSchedulerContext();
+  // Surface whether a schedule already exists so the button label flips
+  // between "Schedule re-scan" and "Scheduled · edit".
+  const existingSchedule = scheduler.schedules.find(
+    s => s.kind === 'wp-scan' && s.domain === report.domain && !s.deletedAt && s.active
+  );
 
   // Resolve the full client record (used by AI prompts for industry context)
   // plus the display name for the PDF cover.
@@ -410,6 +423,16 @@ export default function ScanReport({ report, onRescan, onBack }: ScanReportProps
             </button>
             <button
               className="btn btn-ghost"
+              onClick={() => setScheduleOpen(true)}
+              title={existingSchedule
+                ? 'Schedule already active — open to edit cadence'
+                : 'Schedule a recurring re-scan'}
+            >
+              <Calendar className="w-4 h-4" style={{ color: existingSchedule ? 'var(--mint)' : undefined }} />
+              {existingSchedule ? 'Scheduled · edit' : 'Schedule'}
+            </button>
+            <button
+              className="btn btn-ghost"
               onClick={handleDownloadPdf}
               disabled={downloading}
               title={downloadError ?? 'Generate a branded PDF of this scan report'}
@@ -463,6 +486,29 @@ export default function ScanReport({ report, onRescan, onBack }: ScanReportProps
             onClose={() => setPlanAiOpen(false)}
           />
         </Suspense>
+      )}
+
+      {/* Schedule re-scan dialog. */}
+      {scheduleOpen && (
+        <ScheduleDialog
+          domain={report.domain}
+          initial={existingSchedule && existingSchedule.kind === 'wp-scan'
+            ? { cadence: existingSchedule.cadence, alertOnDrop: existingSchedule.alertOnDrop }
+            : undefined}
+          onSave={(cadence, alertOnDrop) => {
+            if (existingSchedule) {
+              // Replace existing — soft-delete + add fresh. Simpler than
+              // a mutation API and the soft-delete preserves history.
+              scheduler.removeSchedule(existingSchedule.id);
+            }
+            scheduler.addSchedule(report.domain, cadence, {
+              clientId: report.clientId,
+              alertOnDrop,
+            });
+            setScheduleOpen(false);
+          }}
+          onClose={() => setScheduleOpen(false)}
+        />
       )}
     </div>
   );

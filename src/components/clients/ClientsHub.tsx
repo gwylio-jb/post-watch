@@ -14,7 +14,10 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Search, Building2, Pencil, Trash2, Image as ImageIcon, X } from 'lucide-react';
+import { Plus, Search, Building2, Pencil, Trash2, Image as ImageIcon, X, Upload } from 'lucide-react';
+import CsvImportDialog from '../shared/CsvImportDialog';
+import { parseCsv } from '../../utils/csv/parseCsv';
+import { parseClientsFromCsv, type ClientImportRow } from '../../utils/csv/parseClients';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { Client } from '../../data/types';
@@ -283,6 +286,8 @@ export default function ClientsHub() {
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<Client | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  // Sprint 13 Pack 2 — CSV bulk import.
+  const [importOpen, setImportOpen] = useState(false);
 
   // useMemo for stable identity — the consuming useMemos depend on `list`.
   const list = useMemo<Client[]>(() => Array.isArray(clients) ? clients : [], [clients]);
@@ -352,6 +357,9 @@ export default function ClientsHub() {
           <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
             <button type="button" className="btn btn-primary" onClick={() => { setEditing(null); setFormOpen(true); }}>
               <Plus className="w-4 h-4" /> Add client
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => setImportOpen(true)}>
+              <Upload className="w-4 h-4" /> Import CSV
             </button>
           </div>
         </div>
@@ -427,6 +435,45 @@ export default function ClientsHub() {
           initial={editing ?? undefined}
           onSave={handleSave}
           onClose={() => { setEditing(null); setFormOpen(false); }}
+        />
+      )}
+
+      {importOpen && (
+        <CsvImportDialog<ClientImportRow>
+          title="Import clients from CSV"
+          subtitle="Drag a spreadsheet in. The dialog previews everything before anything lands."
+          parse={text => {
+            const parsed = parseCsv(text);
+            return parseClientsFromCsv(parsed, list);
+          }}
+          previewHeaders={['Name', 'Industry', 'Contact', 'Status']}
+          renderRow={(row, i) => (
+            <>
+              <td key={`n-${i}`} style={{ padding: '8px 12px' }}>{row.client.name}</td>
+              <td key={`i-${i}`} style={{ padding: '8px 12px', color: 'var(--ink-3)' }}>{row.client.industry ?? '—'}</td>
+              <td key={`c-${i}`} style={{ padding: '8px 12px', color: 'var(--ink-3)' }}>{row.client.primaryContact ?? '—'}</td>
+              <td key={`s-${i}`} style={{ padding: '8px 12px' }}>
+                {row.isDuplicate
+                  ? <span style={{ fontSize: 10, color: '#D97706', fontFamily: 'var(--font-redesign-mono)' }}>duplicate (will skip)</span>
+                  : <span style={{ fontSize: 10, color: 'var(--mint)', fontFamily: 'var(--font-redesign-mono)' }}>new</span>
+                }
+              </td>
+            </>
+          )}
+          onConfirm={rows => {
+            // Skip duplicates by name. Assign fresh ids.
+            const fresh = rows.filter(r => !r.isDuplicate).map(r => ({
+              ...r.client,
+              id: crypto.randomUUID(),
+            }));
+            if (fresh.length === 0) {
+              setImportOpen(false);
+              return;
+            }
+            setClients(prev => [...(Array.isArray(prev) ? prev : []), ...fresh]);
+            setImportOpen(false);
+          }}
+          onClose={() => setImportOpen(false)}
         />
       )}
     </div>
