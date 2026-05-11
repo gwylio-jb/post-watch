@@ -1,6 +1,6 @@
 import { useState, lazy, Suspense } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronDown, ChevronRight, RefreshCw, ArrowLeft, Loader2, Sparkles, Wrench, FileText, Calendar } from 'lucide-react';
+import { ChevronDown, ChevronRight, RefreshCw, ArrowLeft, Loader2, Sparkles, Wrench, FileText, Calendar, Mail } from 'lucide-react';
 import { useSchedulerContext } from '../../hooks/scanQueueContextRef';
 import ScheduleDialog from './ScheduleDialog';
 import type { AuditCheck, AuditReport, CheckStatus, SeverityLevel, AiSettings } from '../../data/auditTypes';
@@ -9,7 +9,7 @@ import { getExplainer } from '../../data/checkExplainers';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import type { Client } from '../../data/types';
 import { UNASSIGNED_CLIENT_ID } from '../../utils/clientMigration';
-import { explainFindingPrompt, remediationSnippetPrompt, actionPlanPrompt } from '../../utils/ai/prompts';
+import { explainFindingPrompt, remediationSnippetPrompt, actionPlanPrompt, clientCommsEmailPrompt } from '../../utils/ai/prompts';
 import Gauge from '../charts/Gauge';
 
 // AiPanel is heavyweight (modal + fetch glue); lazy-loaded so it only enters
@@ -291,6 +291,7 @@ export default function ScanReport({ report, onRescan, onBack }: ScanReportProps
   // surface — opening one closes whatever's already open.
   const [planAiOpen, setPlanAiOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [emailDraftOpen, setEmailDraftOpen] = useState(false);
   const aiEnabled = !!ai.model?.trim();
 
   // Sprint 13 Pack 2 — schedule re-scans for this report's domain.
@@ -423,6 +424,18 @@ export default function ScanReport({ report, onRescan, onBack }: ScanReportProps
             </button>
             <button
               className="btn btn-ghost"
+              onClick={() => setEmailDraftOpen(true)}
+              disabled={!aiEnabled}
+              title={aiEnabled
+                ? 'Draft a client-facing email summarising this scan'
+                : 'Pick a model in Settings → Local AI to enable'}
+              style={!aiEnabled ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+            >
+              <Mail className="w-4 h-4" style={{ color: aiEnabled ? 'var(--mint)' : undefined }} />
+              Email draft
+            </button>
+            <button
+              className="btn btn-ghost"
               onClick={() => setScheduleOpen(true)}
               title={existingSchedule
                 ? 'Schedule already active — open to edit cadence'
@@ -484,6 +497,21 @@ export default function ScanReport({ report, onRescan, onBack }: ScanReportProps
             maxTokens={1600}
             outputKind="prose"
             onClose={() => setPlanAiOpen(false)}
+          />
+        </Suspense>
+      )}
+
+      {emailDraftOpen && ai.model && (
+        <Suspense fallback={null}>
+          <AiPanel
+            title="Draft client email"
+            subtitle={report.domain}
+            model={ai.model}
+            baseUrl={ai.baseUrl}
+            prompt={clientCommsEmailPrompt(report, { client })}
+            maxTokens={1200}
+            outputKind="prose"
+            onClose={() => setEmailDraftOpen(false)}
           />
         </Suspense>
       )}

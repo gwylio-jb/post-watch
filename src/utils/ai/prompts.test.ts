@@ -12,8 +12,11 @@
 import {
   statementOfApplicabilityPrompt,
   riskTreatmentPlanPrompt,
+  policyStubPrompt,
+  clientCommsEmailPrompt,
 } from './prompts';
 import type { GapAnalysisSession, RiskItem, AnnexAControl, Client } from '../../data/types';
+import type { AuditReport, AuditCheck } from '../../data/auditTypes';
 
 function fakeControl(over: Partial<AnnexAControl> = {}): AnnexAControl {
   return {
@@ -180,5 +183,108 @@ describe('riskTreatmentPlanPrompt', () => {
   it('system prompt asks for plain text (no markdown)', () => {
     const { system } = riskTreatmentPlanPrompt(fakeRisk(), { client: fakeClient });
     expect(system).toContain('Plain text');
+  });
+});
+
+// ─── policyStubPrompt ──────────────────────────────────────────────────────
+
+describe('policyStubPrompt', () => {
+  it('embeds the control id, title and summary', () => {
+    const c = fakeControl({ id: 'A.5.7', title: 'Threat intelligence', summary: 'Collect and use threat info' });
+    const { user } = policyStubPrompt(c, { client: fakeClient });
+    expect(user).toContain('A.5.7');
+    expect(user).toContain('Threat intelligence');
+    expect(user).toContain('Collect and use threat info');
+  });
+
+  it('threads client industry through when present', () => {
+    const { user } = policyStubPrompt(fakeControl(), { client: fakeClient });
+    expect(user).toContain('Acme Corp');
+    expect(user).toContain('Manufacturing');
+  });
+
+  it('survives empty client context', () => {
+    const result = policyStubPrompt(fakeControl(), {});
+    expect(result.user).not.toContain('Client:');
+    expect(result.user).not.toContain('Industry:');
+  });
+
+  it('system prompt asks for "starting outline" framing (not a finished policy)', () => {
+    const { system } = policyStubPrompt(fakeControl(), {});
+    expect(system).toMatch(/starting|outline|skeletal/i);
+    expect(system).toMatch(/review|tailor/i);
+  });
+
+  it('truncates implementation guidance to 500 chars to keep prompt budget', () => {
+    const c = fakeControl({ implementationGuidance: 'x'.repeat(2000) });
+    const { user } = policyStubPrompt(c, {});
+    const guidanceLine = user.split('\n').find(l => l.startsWith('Guidance:'));
+    expect(guidanceLine?.length).toBeLessThan(550);
+  });
+});
+
+// ─── clientCommsEmailPrompt ────────────────────────────────────────────────
+
+function fakeReport(over: Partial<AuditReport> = {}, checks: AuditCheck[] = []): AuditReport {
+  return {
+    id: 'r-1',
+    targetUrl: 'https://example.com',
+    domain: 'example.com',
+    startedAt: '2026-05-01T00:00:00Z',
+    completedAt: '2026-05-01T00:01:30Z',
+    score: 72,
+    checks,
+    ...over,
+  };
+}
+
+function fakeFailedCheck(severity: 'Critical' | 'High' | 'Medium' | 'Low', name = 'Bad'): AuditCheck {
+  return {
+    id: `c-${name}`,
+    category: 'Configuration',
+    name,
+    description: '',
+    worstCaseSeverity: severity,
+    result: { status: 'fail', detail: `${name} failed in detail` },
+  };
+}
+
+describe('clientCommsEmailPrompt', () => {
+  it('embeds the domain and score in the user prompt', () => {
+    const { user } = clientCommsEmailPrompt(fakeReport({ score: 88, domain: 'lawfirm.test' }), { client: fakeClient });
+    expect(user).toContain('lawfirm.test');
+    expect(user).toContain('88');
+  });
+
+  it('lists Critical and High failed checks as top findings', () => {
+    const report = fakeReport({}, [
+      fakeFailedCheck('Critical', 'Critical fail'),
+      fakeFailedCheck('High', 'High fail'),
+      fakeFailedCheck('Medium', 'Medium ignored'),
+    ]);
+    const { user } = clientCommsEmailPrompt(report, { client: fakeClient });
+    expect(user).toContain('Critical fail');
+    expect(user).toContain('High fail');
+    expect(user).not.toContain('Medium ignored');
+  });
+
+  it('caps top findings at 5 to keep the prompt short', () => {
+    const checks = Array.from({ length: 10 }, (_, i) => fakeFailedCheck('Critical', `Crit-${i}`));
+    const report = fakeReport({}, checks);
+    const { user } = clientCommsEmailPrompt(report, {});
+    const matches = user.match(/^- \[Critical\]/gm) ?? [];
+    expect(matches.length).toBeLessThanOrEqual(5);
+  });
+
+  it('frames a clean scan as a positive result', () => {
+    const report = fakeReport({ score: 96 }, []);
+    const { user } = clientCommsEmailPrompt(report, {});
+    expect(user).toContain('no critical or high findings');
+  });
+
+  it('system prompt forbids salutation / signature so output is body-only', () => {
+    const { system } = clientCommsEmailPrompt(fakeReport(), { client: fakeClient });
+    expect(system).toMatch(/email body only/i);
+    expect(system).toMatch(/no.*signature/i);
   });
 });

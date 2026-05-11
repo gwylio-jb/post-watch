@@ -429,3 +429,93 @@ export function riskTreatmentPlanPrompt(
 
   return { system, user };
 }
+
+/**
+ * Policy stub generator — given an Annex A control (or a management
+ * clause), drafts a starter policy outline the consultant can refine.
+ * Useful for greenfield engagements where the client has no existing
+ * documentation: rather than starting from a blank page, the consultant
+ * gets a structured outline that names the right sections.
+ *
+ * NOT a finished policy. Output is meant to be edited heavily before
+ * adoption — the prompt makes this explicit so Claude doesn't pad it
+ * with boilerplate that reads finished.
+ */
+export function policyStubPrompt(
+  control: AnnexAControl,
+  ctx: ClientContext,
+): { system: string; user: string } {
+  const system = [
+    'You are a senior ISO 27001 lead consultant drafting a starter policy outline for a client.',
+    'Output a structured markdown outline (## headings, bullets) covering:',
+    '  - Purpose',
+    '  - Scope',
+    '  - Policy statements (the substantive "shall" clauses, 4-8 of them)',
+    '  - Roles and responsibilities',
+    '  - Related controls (cross-reference, brief)',
+    '  - Review cadence',
+    'UK English. Tone: skeletal but professional — the consultant will fill in details.',
+    'No fabricated facts about the client. When the control implies specific roles or technical details, name them generically (e.g. "IT operations team") rather than guessing.',
+    'No preamble. Start with the # title (the policy name).',
+    'End with a short note in italics: "_This is a starting outline — review and tailor before adoption._"',
+  ].join('\n');
+
+  const user = [
+    `Control: ${control.id} ${control.title}`,
+    `Summary: ${control.summary}`,
+    control.implementationGuidance ? `Guidance: ${control.implementationGuidance.slice(0, 500)}` : '',
+    ctx.client?.name ? `Client: ${ctx.client.name}` : '',
+    ctx.client?.industry ? `Industry: ${ctx.client.industry}` : '',
+    '',
+    'Draft the policy outline now.',
+  ].filter(Boolean).join('\n');
+
+  return { system, user };
+}
+
+/**
+ * Client-communications email composer — turns a scan report into a
+ * sendable email. Distinct from `explainFindingPrompt` (single finding,
+ * inline prose for an existing email) and `actionPlanPrompt` (consultant-
+ * facing plan, not client-facing). This one writes the actual email body.
+ */
+export function clientCommsEmailPrompt(
+  report: AuditReport,
+  ctx: ClientContext,
+): { system: string; user: string } {
+  const system = [
+    'You are a managed-security consultant writing an email to a non-technical client about a WordPress security scan.',
+    'Output the email body only — no subject line, no "Dear [name]" salutation, no signature.',
+    'Tone: professional, warm, plain English. Avoid jargon. Translate technical findings into business-impact language.',
+    'Structure:',
+    '  1. One-sentence opener acknowledging the scan ran',
+    '  2. A short headline of the overall posture ("Your site\'s posture is X/100, which puts you in...")',
+    '  3. The two or three most important findings, each as a short paragraph: what we found, why it matters in plain terms, what we recommend doing about it',
+    '  4. A confident close offering to discuss / walk through fixes',
+    'UK English. Around 200-300 words total.',
+    'No preamble. Start with the opener sentence.',
+  ].join('\n');
+
+  // Pull the top findings (Critical/High fails or warnings) so the email is
+  // grounded in real data rather than generic platitudes.
+  const topFindings = report.checks
+    .filter(c => (c.result?.status === 'fail' || c.result?.status === 'warning')
+      && (c.worstCaseSeverity === 'Critical' || c.worstCaseSeverity === 'High'))
+    .slice(0, 5)
+    .map(c => `- [${c.worstCaseSeverity}] ${c.name} — ${c.result?.detail ?? ''}`)
+    .join('\n');
+
+  const user = [
+    `Domain scanned: ${report.domain}`,
+    `Overall posture score: ${report.score}/100`,
+    ctx.client?.name ? `Client: ${ctx.client.name}` : '',
+    ctx.client?.industry ? `Industry: ${ctx.client.industry}` : '',
+    '',
+    'Top findings to mention:',
+    topFindings || '(no critical or high findings — frame it as a positive result)',
+    '',
+    'Draft the email body now.',
+  ].filter(Boolean).join('\n');
+
+  return { system, user };
+}

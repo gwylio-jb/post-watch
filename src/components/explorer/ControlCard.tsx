@@ -1,8 +1,14 @@
-import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { useState, useEffect, lazy, Suspense } from 'react';
+import { ChevronDown, ChevronRight, Plus, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { AnnexAControl } from '../../data/types';
+import type { AiSettings } from '../../data/auditTypes';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
+import { policyStubPrompt } from '../../utils/ai/prompts';
 import Badge from '../shared/Badge';
+
+// Lazy — AiPanel pulls in the streaming Ollama client.
+const AiPanel = lazy(() => import('../common/AiPanel'));
 
 interface ControlCardProps {
   control: AnnexAControl;
@@ -13,6 +19,9 @@ interface ControlCardProps {
 
 export default function ControlCard({ control, onAddToCheatsheet, compact, forceExpanded }: ControlCardProps) {
   const [expanded, setExpanded] = useState(false);
+  // Sprint 13 Pack 1 tier 2 — policy stub drafter.
+  const [policyDraftOpen, setPolicyDraftOpen] = useState(false);
+  const [ai] = useLocalStorage<AiSettings>('ai-settings', {});
 
   // Sync local state when the parent flags this card as force-expanded
   // (search target, navigation deep-link). One-way: rising edge only — the
@@ -50,6 +59,16 @@ export default function ControlCard({ control, onAddToCheatsheet, compact, force
             ))}
           </div>
         </div>
+        <button
+          onClick={e => { e.stopPropagation(); setPolicyDraftOpen(true); }}
+          disabled={!ai.model?.trim()}
+          className="p-1 text-text-muted hover:text-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          title={ai.model?.trim()
+            ? `Draft a policy outline for ${control.id} locally`
+            : 'Pick a model in Settings → Local AI to enable'}
+        >
+          <Sparkles className="w-4 h-4" />
+        </button>
         {onAddToCheatsheet && (
           <button
             onClick={e => { e.stopPropagation(); onAddToCheatsheet(control.id); }}
@@ -169,6 +188,21 @@ export default function ControlCard({ control, onAddToCheatsheet, compact, force
           </motion.div>
         )}
       </AnimatePresence>
+
+      {policyDraftOpen && ai.model && (
+        <Suspense fallback={null}>
+          <AiPanel
+            title="Draft policy outline"
+            subtitle={`${control.id} ${control.title}`}
+            model={ai.model}
+            baseUrl={ai.baseUrl}
+            prompt={policyStubPrompt(control, {})}
+            maxTokens={1200}
+            outputKind="prose"
+            onClose={() => setPolicyDraftOpen(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
