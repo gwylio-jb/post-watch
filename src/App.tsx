@@ -27,16 +27,24 @@ import type { GapAnalysisSession } from './data/types';
 import { deriveAlerts, filterDismissed } from './utils/deriveAlerts';
 import { runMigrations } from './utils/migrations';
 import { ScanQueueProvider } from './hooks/scanQueueContext';
+import LockGate from './components/auth/LockGate';
 
 export default function App() {
-  // Sprint 13 Pack 2 — wrap the whole app in ScanQueueProvider so the queue
-  // runner keeps processing across page changes (single instance via
-  // context). The scheduler tick lives inside AppContent so it can use the
-  // same queue instance via useScanQueueContext.
+  // Sprint 15 — LockGate wraps everything that touches encrypted state.
+  // When encryption is disabled it's a pass-through; when locked it
+  // replaces children with the unlock screen so AppContent never mounts
+  // with empty initialValue fallbacks. The ScanQueueProvider is INSIDE
+  // the gate because the scheduler tick would otherwise run against a
+  // not-yet-unlocked cache.
+  //
+  // Sprint 13 Pack 2 — ScanQueueProvider supplies single-instance batch
+  // queue + scheduler so they tick across page changes.
   return (
-    <ScanQueueProvider>
-      <AppContent />
-    </ScanQueueProvider>
+    <LockGate>
+      <ScanQueueProvider>
+        <AppContent />
+      </ScanQueueProvider>
+    </LockGate>
   );
 }
 
