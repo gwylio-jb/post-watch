@@ -4,6 +4,7 @@ import { ShieldAlert, Key, ChevronDown, ChevronUp, Globe, Trash2, ExternalLink, 
 import { useScanQueueContext } from '../../hooks/scanQueueContextRef';
 import type { AuditCheck, AuditReport, AuditApiKeys, CheckResult } from '../../data/auditTypes';
 import { runScan, buildCheckCatalogue, normaliseUrl } from '../../utils/audit/scanEngine';
+import { chainReport, nextPrevHash } from '../../utils/integrity';
 import { isTauri } from '../../utils/audit/fetchUtil';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import type { Client } from '../../data/types';
@@ -36,6 +37,13 @@ export default function WpAuditHub({ targetReportId, onTargetConsumed }: WpAudit
   const queue = useScanQueueContext();
 
   const [savedReports, setSavedReports] = useLocalStorage<AuditReport[]>('wp-audit-reports', []);
+  // Sprint 14: stable ref to the latest savedReports so the scan callback
+  // can read it without taking a useCallback dependency on the array
+  // identity (which churns on every scan write).
+  const savedReportsRef = useRef<AuditReport[]>([]);
+  useEffect(() => {
+    savedReportsRef.current = Array.isArray(savedReports) ? savedReports : [];
+  }, [savedReports]);
   const [apiKeys, setApiKeys] = useLocalStorage<AuditApiKeys>('wp-audit-api-keys', {});
   const [clients] = useLocalStorage<Client[]>('clients', []);
   const [scanClientId, setScanClientId] = useState<string>(UNASSIGNED_CLIENT_ID);
@@ -95,11 +103,20 @@ export default function WpAuditHub({ targetReportId, onTargetConsumed }: WpAudit
       // Tag with the chosen client + snapshot their logo at this moment in time
       // so the report keeps its branding even if the client's logo changes later.
       const client = clientsList.find(c => c.id === scanClientId);
-      const report: AuditReport = {
+      const baseReport: AuditReport = {
         ...rawReport,
         clientId: scanClientId,
         clientLogo: client?.logo,
       };
+
+      // Sprint 14 — chain the new report onto the existing tamper-evident
+      // history. nextPrevHash returns GENESIS for an empty array or when
+      // the head is a pre-V2.6 baseline (chain restarts cleanly). Read
+      // from the ref rather than the closed-over state so we don't have
+      // to add savedReports to the callback deps (which would churn the
+      // identity every time the array updates).
+      const prevHash = nextPrevHash(savedReportsRef.current);
+      const report = await chainReport(baseReport, prevHash);
 
       // Save to history
       setSavedReports(prev => [report, ...prev.filter(r => r.id !== report.id)].slice(0, MAX_SAVED));

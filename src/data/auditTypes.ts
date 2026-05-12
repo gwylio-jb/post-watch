@@ -58,6 +58,19 @@ export interface AuditReport {
   clientId?: string;
   /** V2.1: base64 data URL shown in the scan report header and printed output. */
   clientLogo?: string;
+  /**
+   * V2.6 (Sprint 14): tamper-evident hash chain.
+   * `hash`     — SHA-256 over this report's contents excluding the
+   *              `integrity` field itself.
+   * `prevHash` — `hash` of the previous report in the saved-reports array,
+   *              or the genesis sentinel for the first report.
+   * Reports created before V2.6 omit this field and are treated as an
+   * unverified baseline (warning), not tampered (error).
+   */
+  integrity?: {
+    hash: string;
+    prevHash: string;
+  };
 }
 
 export interface AuditApiKeys {

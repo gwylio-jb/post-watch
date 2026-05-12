@@ -13,7 +13,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ExternalLink, Eye, EyeOff, Save, CheckCircle2, Sparkles, RefreshCw, Copy, AlertCircle } from 'lucide-react';
+import { X, ExternalLink, Eye, EyeOff, Save, CheckCircle2, Sparkles, RefreshCw, Copy, AlertCircle, ShieldCheck, ShieldAlert } from 'lucide-react';
+import type { AuditReport } from '../../data/auditTypes';
+import { verifyChain, type VerificationResult } from '../../utils/integrity';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { AuditApiKeys, AiSettings } from '../../data/auditTypes';
@@ -337,6 +339,9 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
             </button>
           </div>
 
+          {/* ── Tamper-evident scan history (Sprint 14) ───────────────────── */}
+          <IntegrityVerifier innerBlockStyle={innerBlockStyle} />
+
           {/* ── External API providers ────────────────────────────────────── */}
           {API_KEY_PROVIDERS.map(p => {
             const value = draft[p.key] ?? '';
@@ -421,5 +426,124 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
       </div>
     </div>,
     document.body,
+  );
+}
+
+// ─── Tamper-evident scan history verifier ─────────────────────────────────
+//
+// Sprint 14 Pack 3. Sits in the Settings panel as a one-button check —
+// walks every saved AuditReport and confirms its hash + chain. Surfaces
+// any mismatch as a flag with the offending report's id + domain.
+
+function IntegrityVerifier({ innerBlockStyle }: { innerBlockStyle: React.CSSProperties }) {
+  const [savedReports] = useLocalStorage<AuditReport[]>('wp-audit-reports', []);
+  const [result, setResult] = useState<VerificationResult | null>(null);
+  const [verifying, setVerifying] = useState(false);
+
+  const safe = Array.isArray(savedReports) ? savedReports : [];
+
+  const handleVerify = async () => {
+    setVerifying(true);
+    try {
+      const r = await verifyChain(safe);
+      setResult(r);
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const errors = result?.flags.filter(f => f.kind !== 'pre-v2.6-baseline') ?? [];
+  const baselines = result?.flags.filter(f => f.kind === 'pre-v2.6-baseline') ?? [];
+
+  return (
+    <div style={innerBlockStyle}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ShieldCheck className="w-4 h-4" style={{ color: 'var(--mint)' }} />
+            <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink-1)' }}>
+              Scan history integrity
+            </span>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4 }}>
+            Walks {safe.length} saved scan report{safe.length === 1 ? '' : 's'} and verifies the tamper-evident chain. Reports created before v2.6 are reported as unverified baselines, not errors.
+          </div>
+        </div>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          onClick={handleVerify}
+          disabled={verifying || safe.length === 0}
+          style={{ flexShrink: 0, padding: '6px 12px', fontSize: 12 }}
+        >
+          {verifying ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+          {verifying ? 'Verifying…' : 'Verify integrity'}
+        </button>
+      </div>
+
+      {result && (
+        <div style={{ marginTop: 6 }}>
+          {result.ok && errors.length === 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '8px 12px', borderRadius: 10,
+              background: 'rgba(0,217,163,0.12)',
+              color: 'var(--mint)', fontSize: 12, fontWeight: 600,
+            }}>
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              All {result.totalChecked} report{result.totalChecked === 1 ? '' : 's'} verified.
+              {baselines.length > 0 && (
+                <span style={{ fontWeight: 400, color: 'var(--ink-2)' }}>
+                  &nbsp;({baselines.length} pre-v2.6 baseline{baselines.length === 1 ? '' : 's'} — chain begins from there.)
+                </span>
+              )}
+            </div>
+          )}
+          {errors.length > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'flex-start', gap: 8,
+              padding: '10px 12px', borderRadius: 10,
+              background: 'rgba(255,74,28,0.10)',
+              border: '1px solid rgba(255,74,28,0.30)',
+              color: 'var(--ember)', fontSize: 12,
+            }}>
+              <ShieldAlert className="w-3.5 h-3.5" style={{ flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <div style={{ fontWeight: 600 }}>
+                  {errors.length} integrity issue{errors.length === 1 ? '' : 's'} detected.
+                </div>
+                <ul style={{ marginTop: 6, paddingLeft: 16, color: 'var(--ink-2)', fontSize: 11 }}>
+                  {errors.slice(0, 10).map((f, i) => (
+                    <li key={i} style={{ marginBottom: 2 }}>
+                      <strong style={{ color: 'var(--ink-1)' }}>{f.domain}</strong>
+                      {' '}
+                      <span style={{ fontFamily: 'var(--font-redesign-mono)', fontSize: 10 }}>{f.reportId.slice(0, 8)}</span>
+                      {' — '}
+                      {f.kind === 'hash-mismatch' ? 'contents have been edited' : 'chain link broken'}
+                    </li>
+                  ))}
+                </ul>
+                {errors.length > 10 && (
+                  <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 4 }}>
+                    … {errors.length - 10} more not shown.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          {!result.ok && errors.length === 0 && baselines.length > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '8px 12px', borderRadius: 10,
+              background: 'rgba(217,119,6,0.10)',
+              color: '#D97706', fontSize: 12,
+            }}>
+              <AlertCircle className="w-3.5 h-3.5" />
+              {baselines.length} pre-v2.6 report{baselines.length === 1 ? '' : 's'} — re-scan to bring them into the chain.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

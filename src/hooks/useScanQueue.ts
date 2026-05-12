@@ -28,6 +28,7 @@ import {
   nextPending, markRunning, markDone, markFailed,
   cancel as cancelRow, clearCompleted, recoverInflight,
 } from '../utils/queue/scanQueue';
+import { chainReport, nextPrevHash } from '../utils/integrity';
 
 const REPORTS_KEY = 'clause-control:wp-audit-reports';
 const API_KEYS_KEY = 'clause-control:wp-audit-api-keys';
@@ -134,7 +135,7 @@ export function useScanQueue(): UseScanQueueResult {
         if (cancelled) return;
 
         const client = next.clientId ? clients.find(c => c.id === next.clientId) : undefined;
-        const report: AuditReport = {
+        const baseReport: AuditReport = {
           ...rawReport,
           clientId: next.clientId,
           clientLogo: client?.logo,
@@ -142,9 +143,12 @@ export function useScanQueue(): UseScanQueueResult {
 
         // Persist the report to wp-audit-reports (same shape WpAuditHub
         // uses for individual scans). Cap at MAX_SAVED_REPORTS to mirror
-        // WpAuditHub's housekeeping.
+        // WpAuditHub's housekeeping. Sprint 14: chain the tamper-evident
+        // hash before persisting.
         const reports = loadJson<AuditReport[]>(REPORTS_KEY, []);
         const safeReports = Array.isArray(reports) ? reports : [];
+        const prevHash = nextPrevHash(safeReports);
+        const report = await chainReport(baseReport, prevHash);
         const nextReports = [report, ...safeReports.filter(r => r.id !== report.id)].slice(0, MAX_SAVED_REPORTS);
         localStorage.setItem(REPORTS_KEY, JSON.stringify(nextReports));
 
