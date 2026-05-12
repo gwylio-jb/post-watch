@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import * as cryptoStorage from '../utils/cryptoStorage';
 
 const STORAGE_VERSION = 1;
 const VERSION_KEY = 'clause-control-version';
@@ -45,8 +46,15 @@ export function useLocalStorage<T>(
   const instanceId = useRef<symbol>(Symbol(prefixedKey));
 
   const [storedValue, setStoredValue] = useState<T>(() => {
+    // Sprint 15: reads go through cryptoStorage. When encryption is
+    // 'disabled' it transparently reads plain localStorage (legacy
+    // behaviour preserved). When 'unlocked' it serves from the in-
+    // memory cache pre-warmed at unlock time. When 'locked' it returns
+    // null and we fall back to initialValue — the LockGate prevents
+    // AppContent from mounting in that state, so this fallback only
+    // matters in error / test scenarios.
     try {
-      const item = localStorage.getItem(prefixedKey);
+      const item = cryptoStorage.get(prefixedKey);
       return item ? (JSON.parse(item) as T) : initialValue;
     } catch {
       return initialValue;
@@ -58,7 +66,7 @@ export function useLocalStorage<T>(
     setStoredValue(prev => {
       const next = typeof value === 'function' ? (value as (p: T) => T)(prev) : value;
       try {
-        localStorage.setItem(prefixedKey, JSON.stringify(next));
+        cryptoStorage.set(prefixedKey, JSON.stringify(next));
       } catch (e) {
         console.warn('Failed to save to localStorage:', e);
       }
@@ -68,11 +76,13 @@ export function useLocalStorage<T>(
   }, [prefixedKey]);
 
   // Listen for writes from OTHER hook instances on the same key (same tab)
-  // and from other tabs via the native `storage` event.
+  // and from other tabs via the native `storage` event. Also re-read on
+  // cryptoStorage status changes (e.g. unlock pre-warms the cache, every
+  // hook needs to swap from initialValue to the real value).
   useEffect(() => {
     function refreshFromStorage() {
       try {
-        const raw = localStorage.getItem(prefixedKey);
+        const raw = cryptoStorage.get(prefixedKey);
         const parsed = raw ? (JSON.parse(raw) as T) : initialValue;
         setStoredValue(parsed);
       } catch {
@@ -95,9 +105,14 @@ export function useLocalStorage<T>(
 
     window.addEventListener(SYNC_EVENT, onSync);
     window.addEventListener('storage', onStorage);
+    // Sprint 15: subscribe to cryptoStorage status transitions so every
+    // hook instance re-reads when unlock fires (cache just populated) or
+    // lock fires (cache just cleared).
+    const unsubscribeCrypto = cryptoStorage.subscribe(refreshFromStorage);
     return () => {
       window.removeEventListener(SYNC_EVENT, onSync);
       window.removeEventListener('storage', onStorage);
+      unsubscribeCrypto();
     };
     // initialValue intentionally excluded: identity-changing default objects
     // would otherwise reinstall the listener on every render.
@@ -105,7 +120,7 @@ export function useLocalStorage<T>(
   }, [prefixedKey]);
 
   const remove = useCallback(() => {
-    localStorage.removeItem(prefixedKey);
+    cryptoStorage.remove(prefixedKey);
     setStoredValue(initialValue);
     emitSync(prefixedKey, instanceId.current);
   }, [prefixedKey, initialValue]);
