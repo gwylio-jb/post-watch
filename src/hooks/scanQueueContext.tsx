@@ -15,12 +15,28 @@ import { useScanQueue } from './useScanQueue';
 import { useScanScheduler } from './useScanScheduler';
 import { ScanQueueContext } from './scanQueueContextRef';
 
+/**
+ * Key for the "backup is overdue" flag. The SettingsPanel reads this to
+ * surface a banner; clicking 'Export now' clears it.
+ */
+const BACKUP_PENDING_KEY = 'clause-control:post-watch:backup-pending';
+
 export function ScanQueueProvider({ children }: { children: ReactNode }) {
   const queue = useScanQueue();
   const scheduler = useScanScheduler({
     onFire: schedule => {
       if (schedule.kind === 'wp-scan') {
         queue.enqueue([{ targetUrl: `https://${schedule.domain}`, clientId: schedule.clientId }]);
+        return;
+      }
+      if (schedule.kind === 'backup') {
+        // Set the pending flag — Settings panel reacts to this via
+        // useLocalStorage. We deliberately DON'T auto-trigger the
+        // download: silent file writes on a schedule are hostile UX.
+        // The user sees a banner next time they open Settings.
+        try { localStorage.setItem(BACKUP_PENDING_KEY, new Date().toISOString()); }
+        catch { /* ignore */ }
+        return;
       }
     },
   });

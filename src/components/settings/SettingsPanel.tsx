@@ -13,9 +13,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ExternalLink, Eye, EyeOff, Save, CheckCircle2, Sparkles, RefreshCw, Copy, AlertCircle, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { X, ExternalLink, Eye, EyeOff, Save, CheckCircle2, Sparkles, RefreshCw, Copy, AlertCircle, ShieldCheck, ShieldAlert, Archive, Calendar } from 'lucide-react';
 import type { AuditReport } from '../../data/auditTypes';
+import type { Schedule, SchedulerCadence } from '../../data/types';
 import { verifyChain, type VerificationResult } from '../../utils/integrity';
+import { useSchedulerContext } from '../../hooks/scanQueueContextRef';
+import { exportBackup } from '../../utils/backup';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { AuditApiKeys, AiSettings } from '../../data/auditTypes';
@@ -342,6 +345,9 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
           {/* ── Tamper-evident scan history (Sprint 14) ───────────────────── */}
           <IntegrityVerifier innerBlockStyle={innerBlockStyle} />
 
+          {/* ── Auto-backup reminders (Sprint 14) ─────────────────────────── */}
+          <BackupReminder innerBlockStyle={innerBlockStyle} />
+
           {/* ── External API providers ────────────────────────────────────── */}
           {API_KEY_PROVIDERS.map(p => {
             const value = draft[p.key] ?? '';
@@ -546,4 +552,175 @@ function IntegrityVerifier({ innerBlockStyle }: { innerBlockStyle: React.CSSProp
       )}
     </div>
   );
+}
+
+// ─── Auto-backup reminders (Sprint 14) ────────────────────────────────────
+//
+// Schedules a recurring reminder. When the schedule fires (via the
+// scheduler hook in ScanQueueProvider), a flag is written to localStorage.
+// This component reads the flag and surfaces a banner — clicking
+// 'Export now' triggers the existing exportBackup download and clears
+// the flag.
+//
+// We deliberately do NOT auto-trigger the download on the schedule.
+// Silent file writes on a timer would be hostile UX; the consultant
+// should consent to each download.
+
+const BACKUP_PENDING_KEY = 'post-watch:backup-pending';
+
+function BackupReminder({ innerBlockStyle }: { innerBlockStyle: React.CSSProperties }) {
+  const scheduler = useSchedulerContext();
+  const [pendingAt, setPendingAt] = useLocalStorage<string | null>(BACKUP_PENDING_KEY, null);
+
+  const existing = scheduler.schedules.find(
+    s => s.kind === 'backup' && !s.deletedAt && s.active
+  ) as Extract<Schedule, { kind: 'backup' }> | undefined;
+
+  // Cadence picker state — only relevant when there's no existing schedule.
+  const [pickerKind, setPickerKind] = useState<SchedulerCadence['kind']>('weekly');
+  const [weekday, setWeekday] = useState(1);
+  const [intervalDays, setIntervalDays] = useState(7);
+
+  const buildCadence = (): SchedulerCadence =>
+      pickerKind === 'weekly'   ? { kind: 'weekly',   weekday: weekday as 0|1|2|3|4|5|6, hour: 9 }
+    : pickerKind === 'monthly'  ? { kind: 'monthly',  day: 1, hour: 9 }
+    : { kind: 'interval', days: intervalDays };
+
+  const handleEnable = () => {
+    scheduler.addBackupSchedule(buildCadence());
+  };
+
+  const handleDisable = () => {
+    if (existing) scheduler.removeSchedule(existing.id);
+  };
+
+  const handleExportNow = () => {
+    exportBackup();
+    setPendingAt(null);
+  };
+
+  const handleDismiss = () => setPendingAt(null);
+
+  return (
+    <div style={innerBlockStyle}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Archive className="w-4 h-4" style={{ color: 'var(--mint)' }} />
+            <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink-1)' }}>
+              Backup reminders
+            </span>
+            {existing && (
+              <span style={{ fontSize: 10, color: 'var(--mint)', fontFamily: 'var(--font-redesign-mono)' }}>
+                active
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4 }}>
+            We never auto-download anything. When a backup is due, you'll see a banner here and choose when to export.
+          </div>
+        </div>
+      </div>
+
+      {/* Pending banner */}
+      {pendingAt && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 12px', borderRadius: 10,
+          background: 'rgba(217,119,6,0.12)',
+          border: '1px solid rgba(217,119,6,0.30)',
+          marginBottom: 10,
+        }}>
+          <AlertCircle className="w-4 h-4" style={{ color: '#D97706', flexShrink: 0 }} />
+          <div style={{ flex: 1, fontSize: 12, color: 'var(--ink-1)' }}>
+            Backup is overdue — last reminder fired on{' '}
+            {new Date(pendingAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}.
+          </div>
+          <button type="button" className="btn btn-primary" style={{ padding: '4px 10px', fontSize: 11 }} onClick={handleExportNow}>
+            Export now
+          </button>
+          <button type="button" className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 11 }} onClick={handleDismiss}>
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Active schedule summary or cadence picker */}
+      {existing ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+          <Calendar className="w-3.5 h-3.5" style={{ color: 'var(--ink-3)' }} />
+          <span style={{ color: 'var(--ink-2)' }}>
+            {summariseCadence(existing.cadence)} · next due{' '}
+            {new Date(existing.nextDueAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+          </span>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ marginLeft: 'auto', padding: '4px 10px', fontSize: 11 }}
+            onClick={handleDisable}
+          >
+            Turn off
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <select
+            value={pickerKind}
+            onChange={e => setPickerKind(e.target.value as SchedulerCadence['kind'])}
+            style={{
+              padding: '6px 10px', borderRadius: 8,
+              border: '1px solid var(--line-2)', background: 'var(--bg-2)',
+              color: 'var(--ink-1)', fontSize: 12, fontFamily: 'inherit',
+            }}
+          >
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="interval">Every N days</option>
+          </select>
+          {pickerKind === 'weekly' && (
+            <select
+              value={weekday}
+              onChange={e => setWeekday(parseInt(e.target.value, 10))}
+              style={{
+                padding: '6px 10px', borderRadius: 8,
+                border: '1px solid var(--line-2)', background: 'var(--bg-2)',
+                color: 'var(--ink-1)', fontSize: 12, fontFamily: 'inherit',
+              }}
+            >
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => (
+                <option key={i} value={i}>{d}</option>
+              ))}
+            </select>
+          )}
+          {pickerKind === 'interval' && (
+            <input
+              type="number" min={1} max={365} value={intervalDays}
+              onChange={e => setIntervalDays(Math.max(1, parseInt(e.target.value || '1', 10)))}
+              style={{
+                width: 70, padding: '6px 10px', borderRadius: 8,
+                border: '1px solid var(--line-2)', background: 'var(--bg-2)',
+                color: 'var(--ink-1)', fontSize: 12, fontFamily: 'inherit',
+              }}
+            />
+          )}
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ padding: '4px 12px', fontSize: 11 }}
+            onClick={handleEnable}
+          >
+            <CheckCircle2 className="w-3 h-3" /> Enable
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function summariseCadence(c: SchedulerCadence): string {
+  if (c.kind === 'interval') return `Every ${c.days} day${c.days === 1 ? '' : 's'}`;
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  if (c.kind === 'weekly')   return `Weekly on ${weekdays[c.weekday]}`;
+  if (c.kind === 'monthly')  return `Monthly on day ${c.day}`;
+  return 'Custom';
 }

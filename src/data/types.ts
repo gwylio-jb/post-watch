@@ -229,8 +229,10 @@ export type SchedulerCadence =
 
 /**
  * Generalised recurring task. The `kind` discriminator picks what fires:
- * v2.5 ships only `wp-scan` (re-scan a domain). Pack 4's monthly executive
- * PDF will add `report-export` without touching this type's shape.
+ *   v2.5 — `wp-scan` (re-scan a domain).
+ *   v2.6 — `backup` (remind user a backup is overdue; user runs export
+ *          themselves to keep the auto-download out of unattended scope).
+ *   Pack 4 — `report-export` (monthly executive PDF).
  */
 export type Schedule =
   | {
@@ -246,6 +248,15 @@ export type Schedule =
       /** Pre-computed for efficient scan-on-launch matching. ISO string, UTC. */
       nextDueAt: string;
       /** Soft-delete marker. Omitted = live. */
+      deletedAt?: string;
+    }
+  | {
+      id: string;
+      kind: 'backup';
+      cadence: SchedulerCadence;
+      active: boolean;
+      lastFiredAt?: string;
+      nextDueAt: string;
       deletedAt?: string;
     };
     // Future: { kind: 'report-export'; ... } in Pack 4.

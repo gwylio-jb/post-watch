@@ -11,7 +11,7 @@
  *  - markFired updating both lastFiredAt and nextDueAt atomically.
  */
 import {
-  computeNextDueAt, dueNow, markFired, newScanSchedule,
+  computeNextDueAt, dueNow, markFired, newScanSchedule, newBackupSchedule,
   loadSchedules, saveSchedules,
 } from './scanScheduler';
 import type { Schedule } from '../../data/types';
@@ -218,5 +218,47 @@ describe('loadSchedules / saveSchedules', () => {
   it('returns [] when storage holds a non-array shape', () => {
     localStorage.setItem(SCHEDULE_KEY, JSON.stringify({ foo: 'bar' }));
     expect(loadSchedules()).toEqual([]);
+  });
+});
+
+// ─── newBackupSchedule ─────────────────────────────────────────────────────
+//
+// Sprint 14 Pack 3 #3 — generalised the scheduler to fire both wp-scan
+// and backup schedules. These tests pin the new shape + confirm dueNow
+// no longer filters by kind.
+
+describe('newBackupSchedule', () => {
+  it('creates an active backup schedule with computed nextDueAt', () => {
+    const now = new Date('2026-05-01T12:00:00Z');
+    const s = newBackupSchedule({ kind: 'interval', days: 7 }, now);
+    expect(s.kind).toBe('backup');
+    if (s.kind === 'backup') {
+      expect(s.active).toBe(true);
+      expect(s.deletedAt).toBeUndefined();
+      expect(s.nextDueAt).toBe('2026-05-08T12:00:00.000Z');
+    }
+  });
+});
+
+describe('mixed-kind scheduling', () => {
+  it('dueNow includes both wp-scan and backup schedules whose time has come', () => {
+    const past = '2026-04-01T00:00:00Z';
+    const list: Schedule[] = [
+      { ...fakeSchedule({ id: 'scan' }), nextDueAt: past },
+      { id: 'bkp', kind: 'backup', cadence: { kind: 'interval', days: 7 }, active: true, nextDueAt: past },
+    ];
+    const now = new Date('2026-05-01T00:00:00Z');
+    const due = dueNow(list, now);
+    expect(due.map(s => s.kind).sort()).toEqual(['backup', 'wp-scan']);
+  });
+
+  it('markFired works on a backup schedule (recomputes nextDueAt)', () => {
+    const b: Schedule = {
+      id: 'bkp', kind: 'backup', cadence: { kind: 'interval', days: 30 },
+      active: true, nextDueAt: '2026-04-01T00:00:00Z',
+    };
+    const fired = markFired(b, new Date('2026-05-01T12:00:00Z'));
+    expect(fired.lastFiredAt).toBe('2026-05-01T12:00:00.000Z');
+    expect(fired.nextDueAt).toBe('2026-05-31T12:00:00.000Z');
   });
 });

@@ -18,7 +18,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { Schedule, SchedulerCadence } from '../data/types';
 import {
-  loadSchedules, saveSchedules, dueNow, markFired, newScanSchedule,
+  loadSchedules, saveSchedules, dueNow, markFired, newScanSchedule, newBackupSchedule,
 } from '../utils/schedule/scanScheduler';
 
 const TICK_MS = 60_000;
@@ -31,6 +31,8 @@ export interface UseScanSchedulerResult {
     cadence: SchedulerCadence,
     opts?: { clientId?: string; alertOnDrop?: number },
   ) => Schedule;
+  /** Sprint 14 Pack 3 #3 — add a backup-reminder schedule. */
+  addBackupSchedule: (cadence: SchedulerCadence) => Schedule;
   /** Toggle active/paused. Soft-kept rows survive the toggle. */
   setActive: (id: string, active: boolean) => void;
   /** Soft-delete (sets deletedAt). Doesn't physically remove. */
@@ -101,10 +103,19 @@ export function useScanScheduler({ onFire }: UseScanSchedulerOpts): UseScanSched
     [writeSchedules],
   );
 
+  const addBackupSchedule = useCallback(
+    (cadence: SchedulerCadence) => {
+      const s = newBackupSchedule(cadence);
+      writeSchedules([...schedulesRef.current, s]);
+      return s;
+    },
+    [writeSchedules],
+  );
+
   const setActive = useCallback((id: string, active: boolean) => {
     writeSchedules(
       schedulesRef.current.map(s =>
-        s.id === id && s.kind === 'wp-scan' ? { ...s, active } : s
+        s.id === id ? { ...s, active } : s
       )
     );
   }, [writeSchedules]);
@@ -119,5 +130,5 @@ export function useScanScheduler({ onFire }: UseScanSchedulerOpts): UseScanSched
     );
   }, [writeSchedules]);
 
-  return { schedules, addSchedule, setActive, removeSchedule };
+  return { schedules, addSchedule, addBackupSchedule, setActive, removeSchedule };
 }

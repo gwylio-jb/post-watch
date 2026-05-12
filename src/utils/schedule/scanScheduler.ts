@@ -59,11 +59,15 @@ export function computeNextDueAt(
   return target.toISOString();
 }
 
-/** Return only schedules whose `nextDueAt` is at or before `now`. */
+/**
+ * Return only schedules whose `nextDueAt` is at or before `now`.
+ * Generic over the Schedule kind — `wp-scan` and `backup` both flow
+ * through here. The onFire dispatch in the provider decides what to do
+ * with each.
+ */
 export function dueNow(schedules: Schedule[], now: Date = new Date()): Schedule[] {
   const ms = now.getTime();
   return schedules.filter(s =>
-    s.kind === 'wp-scan' &&
     s.active &&
     !s.deletedAt &&
     new Date(s.nextDueAt).getTime() <= ms
@@ -72,10 +76,11 @@ export function dueNow(schedules: Schedule[], now: Date = new Date()): Schedule[
 
 /**
  * Apply a "I just fired this schedule" update — bump lastFiredAt and
- * recompute nextDueAt from the cadence.
+ * recompute nextDueAt from the cadence. Kind-agnostic — works for every
+ * Schedule variant because the wp-scan / backup shapes share these
+ * fields.
  */
 export function markFired(schedule: Schedule, now: Date = new Date()): Schedule {
-  if (schedule.kind !== 'wp-scan') return schedule;
   const lastFiredAt = now.toISOString();
   return {
     ...schedule,
@@ -98,6 +103,26 @@ export function newScanSchedule(
     clientId: opts.clientId,
     cadence,
     alertOnDrop: opts.alertOnDrop,
+    active: true,
+    nextDueAt: computeNextDueAt(cadence, now),
+  };
+}
+
+/**
+ * Convenience constructor for backup-reminder schedules (Sprint 14 Pack 3
+ * #3). When fired, the scheduler hook sets a "backup overdue" flag; the
+ * Settings panel surfaces it as a banner with a one-click export action.
+ * We intentionally don't auto-download — silent file writes on a
+ * schedule would be hostile UX.
+ */
+export function newBackupSchedule(
+  cadence: SchedulerCadence,
+  now: Date = new Date(),
+): Schedule {
+  return {
+    id: `sch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    kind: 'backup',
+    cadence,
     active: true,
     nextDueAt: computeNextDueAt(cadence, now),
   };
