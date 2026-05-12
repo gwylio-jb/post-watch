@@ -1,7 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ManagementClause } from '../../data/types';
+import type { AiSettings } from '../../data/auditTypes';
+import { useLocalStorage } from '../../hooks/useLocalStorage';
+import { auditQuestionsPrompt } from '../../utils/ai/prompts';
+
+// Lazy — AiPanel pulls in the streaming Ollama client.
+const AiPanel = lazy(() => import('../common/AiPanel'));
 
 interface ClauseExplorerProps {
   clauses: ManagementClause[];
@@ -127,6 +133,9 @@ function ClauseItem({
   onToggle: () => void;
   rowRef: (el: HTMLDivElement | null) => void;
 }) {
+  // Sprint 13.5 — local-AI audit question drafter, per-clause panel state.
+  const [questionsOpen, setQuestionsOpen] = useState(false);
+  const [ai] = useLocalStorage<AiSettings>('ai-settings', {});
   return (
     <div ref={rowRef} className="border-b border-border/30 last:border-b-0">
       <button
@@ -167,6 +176,23 @@ function ClauseItem({
                     </li>
                   ))}
                 </ul>
+                <button
+                  type="button"
+                  onClick={() => setQuestionsOpen(true)}
+                  disabled={!ai.model?.trim()}
+                  className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{
+                    background: 'rgba(0,217,163,0.12)',
+                    color: 'var(--color-text-accent, #007A5E)',
+                    border: '1px solid rgba(0,217,163,0.30)',
+                  }}
+                  title={ai.model?.trim()
+                    ? 'Generate additional client-tailored audit questions locally'
+                    : 'Pick a model in Settings → Local AI to enable'}
+                >
+                  <Sparkles className="w-3 h-3" />
+                  Draft more (AI)
+                </button>
               </DetailSection>
 
               <DetailSection title="Typical Evidence">
@@ -221,6 +247,21 @@ function ClauseItem({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {questionsOpen && ai.model && (
+        <Suspense fallback={null}>
+          <AiPanel
+            title="Draft audit interview questions"
+            subtitle={`${clause.id} ${clause.title}`}
+            model={ai.model}
+            baseUrl={ai.baseUrl}
+            prompt={auditQuestionsPrompt(clause, {})}
+            maxTokens={1000}
+            outputKind="prose"
+            onClose={() => setQuestionsOpen(false)}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

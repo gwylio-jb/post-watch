@@ -519,3 +519,52 @@ export function clientCommsEmailPrompt(
 
   return { system, user };
 }
+
+/**
+ * Audit interview question generator — Sprint 13 Pack 1 Tier 3.
+ *
+ * Both ManagementClause and AnnexAControl already carry a `auditQuestions:
+ * string[]` field hand-curated in the data. This drafter generates additional
+ * questions tailored to the client's industry / engagement, so consultants
+ * doing a deep-dive on Acme Manufacturing get probes that reference physical
+ * security, plant-floor IT, etc. — not the generic catalogue.
+ *
+ * Accepts either a clause or a control — the type discriminates internally.
+ */
+export function auditQuestionsPrompt(
+  item: ManagementClause | AnnexAControl,
+  ctx: ClientContext,
+): { system: string; user: string } {
+  // The discriminator is whether the item has clause-style `requirements`.
+  const isClause = 'requirements' in item;
+  const kind = isClause ? 'Management clause' : 'Annex A control';
+
+  const system = [
+    'You are a senior ISO 27001 internal auditor preparing for an interview-based audit.',
+    'Output 6-8 open-ended interview questions tailored to the item below and the client\'s context.',
+    'Format as a numbered markdown list. Each question on one line.',
+    'Mix question types: 2-3 broad framing questions ("How does..."), 2-3 evidence-probing questions ("What records..."), 1-2 walk-through questions ("Show me the last time...").',
+    'Tailor to the client\'s industry where the prompt provides one — e.g. mention plant-floor systems for manufacturing, patient data for healthcare.',
+    'Avoid yes/no questions. Avoid leading questions.',
+    'UK English. No preamble — start with "1.".',
+    'Do not repeat the standard catalogue questions verbatim — assume those are already covered. Your job is to add depth and client-specific probes.',
+  ].join('\n');
+
+  // Same shape regardless of kind — surfaces fields both types share.
+  const lines = [
+    `${kind}: ${item.id} ${item.title}`,
+    `Summary: ${item.summary}`,
+  ];
+  if (item.commonGaps?.length > 0) {
+    lines.push(`Common gaps to probe: ${item.commonGaps.slice(0, 5).join('; ')}`);
+  }
+  if (item.typicalEvidence?.length > 0) {
+    lines.push(`Typical evidence: ${item.typicalEvidence.slice(0, 5).join('; ')}`);
+  }
+  if (ctx.client?.name) lines.push(`Client: ${ctx.client.name}`);
+  if (ctx.client?.industry) lines.push(`Industry: ${ctx.client.industry}`);
+  if (ctx.client?.notes) lines.push(`Engagement notes: ${ctx.client.notes.slice(0, 300)}`);
+  lines.push('', 'Draft the additional audit interview questions now.');
+
+  return { system, user: lines.join('\n') };
+}

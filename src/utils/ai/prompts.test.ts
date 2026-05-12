@@ -14,8 +14,9 @@ import {
   riskTreatmentPlanPrompt,
   policyStubPrompt,
   clientCommsEmailPrompt,
+  auditQuestionsPrompt,
 } from './prompts';
-import type { GapAnalysisSession, RiskItem, AnnexAControl, Client } from '../../data/types';
+import type { GapAnalysisSession, RiskItem, AnnexAControl, Client, ManagementClause } from '../../data/types';
 import type { AuditReport, AuditCheck } from '../../data/auditTypes';
 
 function fakeControl(over: Partial<AnnexAControl> = {}): AnnexAControl {
@@ -286,5 +287,73 @@ describe('clientCommsEmailPrompt', () => {
     const { system } = clientCommsEmailPrompt(fakeReport(), { client: fakeClient });
     expect(system).toMatch(/email body only/i);
     expect(system).toMatch(/no.*signature/i);
+  });
+});
+
+// ─── auditQuestionsPrompt ──────────────────────────────────────────────────
+
+function fakeClause(over: Partial<ManagementClause> = {}): ManagementClause {
+  return {
+    id: '6.1',
+    title: 'Actions to address risks and opportunities',
+    category: 'Planning',
+    summary: 'Identify and act on risks affecting the ISMS',
+    requirements: ['Determine risks', 'Plan actions'],
+    auditQuestions: ['How do you identify risks?'],
+    typicalEvidence: ['Risk register'],
+    commonGaps: ['No process for risk owner sign-off'],
+    tips: [],
+    relatedClauses: [],
+    relatedControls: [],
+    ...over,
+  };
+}
+
+describe('auditQuestionsPrompt', () => {
+  it('labels a clause as "Management clause"', () => {
+    const { user } = auditQuestionsPrompt(fakeClause(), {});
+    expect(user).toContain('Management clause: 6.1');
+  });
+
+  it('labels a control as "Annex A control"', () => {
+    const { user } = auditQuestionsPrompt(fakeControl({ id: 'A.5.1' }), {});
+    expect(user).toContain('Annex A control: A.5.1');
+  });
+
+  it('threads client industry + notes through', () => {
+    const { user } = auditQuestionsPrompt(fakeClause(), { client: fakeClient });
+    expect(user).toContain('Acme Corp');
+    expect(user).toContain('Manufacturing');
+    expect(user).toContain('Single-site UK operation');
+  });
+
+  it('truncates engagement notes to 300 chars', () => {
+    const big = { ...fakeClient, notes: 'x'.repeat(2000) };
+    const { user } = auditQuestionsPrompt(fakeClause(), { client: big });
+    const notesLine = user.split('\n').find(l => l.startsWith('Engagement notes:'));
+    expect(notesLine?.length).toBeLessThan(350);
+  });
+
+  it('caps commonGaps + typicalEvidence at 5 each to keep budget', () => {
+    const clause = fakeClause({
+      commonGaps:    Array.from({ length: 20 }, (_, i) => `gap-${i}`),
+      typicalEvidence: Array.from({ length: 20 }, (_, i) => `evidence-${i}`),
+    });
+    const { user } = auditQuestionsPrompt(clause, {});
+    const gaps = user.split('\n').find(l => l.startsWith('Common gaps')) ?? '';
+    const ev   = user.split('\n').find(l => l.startsWith('Typical evidence')) ?? '';
+    expect((gaps.match(/gap-/g) ?? []).length).toBe(5);
+    expect((ev.match(/evidence-/g) ?? []).length).toBe(5);
+  });
+
+  it('system prompt asks for a mix of question types', () => {
+    const { system } = auditQuestionsPrompt(fakeClause(), {});
+    expect(system).toMatch(/open-ended/i);
+    expect(system).toMatch(/walk-through|evidence-probing|framing/i);
+  });
+
+  it('system prompt forbids re-running the catalogue verbatim', () => {
+    const { system } = auditQuestionsPrompt(fakeClause(), {});
+    expect(system).toMatch(/not.*repeat.*catalogue|already covered/i);
   });
 });

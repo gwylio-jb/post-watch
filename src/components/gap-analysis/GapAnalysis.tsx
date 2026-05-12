@@ -1,5 +1,8 @@
 import { useState, useMemo, lazy, Suspense } from 'react';
-import { Trash2, ChevronRight, Plus, Sparkles } from 'lucide-react';
+import { Trash2, ChevronRight, Plus, Sparkles, Upload } from 'lucide-react';
+import CsvImportDialog from '../shared/CsvImportDialog';
+import { parseCsv } from '../../utils/csv/parseCsv';
+import { parseGapItemsFromCsv, mergeGapItems, type GapItemImportRow } from '../../utils/csv/parseGapItems';
 import type { AnnexAControl, ManagementClause, GapAnalysisSession, GapAnalysisItem, ComplianceStatus, Priority, Client } from '../../data/types';
 import type { AiSettings } from '../../data/auditTypes';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
@@ -30,6 +33,8 @@ export default function GapAnalysis({ controls, clauses }: GapAnalysisProps) {
   // Sprint 13 Pack 1 — separate state from `aiOpen` so the two drafters can't
   // accidentally double-mount AiPanel.
   const [soaDraftOpen, setSoaDraftOpen] = useState(false);
+  // Sprint 13.5 — CSV import of gap items into an existing session.
+  const [importOpen, setImportOpen] = useState(false);
   const [sessionName, setSessionName] = useState('');
   const [sessionClientId, setSessionClientId] = useState<string>(UNASSIGNED_CLIENT_ID);
   const [scope, setScope] = useState<'full' | 'clauses' | 'controls'>('full');
@@ -280,6 +285,14 @@ export default function GapAnalysis({ controls, clauses }: GapAnalysisProps) {
             Draft SoA
           </button>
           <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors bg-surface border border-border text-text-secondary hover:text-text-primary"
+            title="Import gap statuses from a CSV"
+          >
+            <Upload className="w-3 h-3" /> Import CSV
+          </button>
+          <button
             onClick={() => setShowDashboard(!showDashboard)}
             className={`px-3 py-1.5 text-xs rounded-md transition-colors ${showDashboard ? 'bg-accent/20 text-accent' : 'bg-surface border border-border text-text-secondary hover:text-text-primary'}`}
           >
@@ -341,6 +354,45 @@ export default function GapAnalysis({ controls, clauses }: GapAnalysisProps) {
             onClose={() => setSoaDraftOpen(false)}
           />
         </Suspense>
+      )}
+
+      {importOpen && (
+        <CsvImportDialog<GapItemImportRow>
+          title="Import gap analysis from CSV"
+          subtitle="Updates existing rows by id and adds new ones. Untouched items stay as they are."
+          parse={text => {
+            const parsed = parseCsv(text);
+            return parseGapItemsFromCsv(parsed, activeSession.items, clauses, controls);
+          }}
+          previewHeaders={['Id', 'Type', 'Status', 'Priority', 'Action']}
+          renderRow={(row, i) => (
+            <>
+              <td key={`id-${i}`} style={{ padding: '8px 12px', fontFamily: 'var(--font-redesign-mono)' }}>{row.item.itemId}</td>
+              <td key={`tp-${i}`} style={{ padding: '8px 12px', color: 'var(--ink-3)' }}>{row.item.itemType}</td>
+              <td key={`st-${i}`} style={{ padding: '8px 12px' }}>{row.item.status}</td>
+              <td key={`pr-${i}`} style={{ padding: '8px 12px' }}>{row.item.priority}</td>
+              <td key={`ac-${i}`} style={{ padding: '8px 12px' }}>
+                <span style={{
+                  fontSize: 10,
+                  color: row.isUpdate ? '#D97706' : 'var(--mint)',
+                  fontFamily: 'var(--font-redesign-mono)',
+                }}>
+                  {row.isUpdate ? 'update' : 'new'}
+                </span>
+              </td>
+            </>
+          )}
+          onConfirm={rows => {
+            const items = rows.map(r => r.item);
+            setSessions(prev => (Array.isArray(prev) ? prev : []).map(s =>
+              s.id === activeSession.id
+                ? { ...s, items: mergeGapItems(s.items, items), updatedAt: new Date().toISOString() }
+                : s
+            ));
+            setImportOpen(false);
+          }}
+          onClose={() => setImportOpen(false)}
+        />
       )}
 
       {showDashboard && <GapDashboard items={activeSession.items} />}

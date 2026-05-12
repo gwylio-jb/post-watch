@@ -2,8 +2,9 @@ import { useState, useMemo } from 'react';
 import { FileText, Download, Users, Loader2 } from 'lucide-react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import type { AuditReport } from '../../data/auditTypes';
-import type { GapAnalysisSession, Client } from '../../data/types';
+import type { GapAnalysisSession, Client, RiskItem } from '../../data/types';
 import { UNASSIGNED_CLIENT_ID } from '../../utils/clientMigration';
+import PortfolioActivity from './PortfolioActivity';
 
 // ─── Report type selector ─────────────────────────────────────────────────────
 
@@ -215,6 +216,7 @@ export default function ReportHub() {
   const [savedReports] = useLocalStorage<AuditReport[]>('wp-audit-reports', []);
   const [gapSessions] = useLocalStorage<GapAnalysisSession[]>('gap-sessions', []);
   const [clients] = useLocalStorage<Client[]>('clients', []);
+  const [risks] = useLocalStorage<RiskItem[]>('post-watch:risks', []);
 
   const [reportType, setReportType] = useState<ReportType>('wp-security');
   const [clientScope, setClientScope] = useState<'all' | string>('all');
@@ -226,6 +228,7 @@ export default function ReportHub() {
   const safeReports = useMemo<AuditReport[]>(() => Array.isArray(savedReports) ? savedReports : [], [savedReports]);
   const safeSessions = useMemo<GapAnalysisSession[]>(() => Array.isArray(gapSessions) ? gapSessions : [], [gapSessions]);
   const safeClients = useMemo<Client[]>(() => Array.isArray(clients) ? clients : [], [clients]);
+  const safeRisks = useMemo<RiskItem[]>(() => Array.isArray(risks) ? risks : [], [risks]);
 
   // Scope selector always offers Unassigned so legacy untagged data stays reachable.
   const pickerClients = useMemo<Client[]>(() => {
@@ -376,6 +379,13 @@ export default function ReportHub() {
           )}
         </div>
       </section>
+
+      <PortfolioActivity
+        clients={safeClients}
+        reports={safeReports}
+        sessions={safeSessions}
+        risks={safeRisks}
+      />
 
       {/* Controls + preview */}
       <div className="grid grid-cols-3 gap-5">
