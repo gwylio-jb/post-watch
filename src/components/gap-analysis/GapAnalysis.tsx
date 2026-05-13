@@ -14,6 +14,7 @@ import StatusIndicator from '../shared/StatusIndicator';
 import GapDashboard from './GapDashboard';
 import SnapshotDialog from './SnapshotDialog';
 import SnapshotDiff from './SnapshotDiff';
+import AttachmentList from '../shared/AttachmentList';
 
 // Lazy-loaded — see ScanReport.tsx for the rationale.
 const AiPanel = lazy(() => import('../common/AiPanel'));
@@ -482,38 +483,44 @@ export default function GapAnalysis({ controls, clauses }: GapAnalysisProps) {
             : clauses.find(c => c.id === item.itemId);
           if (!source) return null;
           return (
-            <div key={item.itemId} className="flex items-center gap-2 p-2 bg-surface border border-border rounded-lg text-xs">
-              <span className="font-mono text-accent w-14 flex-shrink-0">{source.id}</span>
-              <span className="text-text-primary flex-1 min-w-0 truncate">{source.title}</span>
-              <select
-                value={item.status}
-                onChange={e => updateItem(item.itemId, { status: e.target.value as ComplianceStatus })}
-                className="bg-surface-alt border border-border rounded px-1.5 py-1 text-[10px] text-text-secondary outline-none w-32"
-              >
-                {complianceOptions.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-              <select
-                value={item.priority}
-                onChange={e => updateItem(item.itemId, { priority: e.target.value as Priority })}
-                className="bg-surface-alt border border-border rounded px-1.5 py-1 text-[10px] text-text-secondary outline-none w-16"
-              >
-                {priorityOptions.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-              <input
-                type="text"
-                placeholder="Owner"
-                value={item.responsible}
-                onChange={e => updateItem(item.itemId, { responsible: e.target.value })}
-                className="bg-surface-alt border border-border rounded px-1.5 py-1 text-[10px] text-text-secondary outline-none w-24"
-              />
-              <input
-                type="text"
-                placeholder="Notes..."
-                value={item.notes}
-                onChange={e => updateItem(item.itemId, { notes: e.target.value })}
-                className="bg-surface-alt border border-border rounded px-1.5 py-1 text-[10px] text-text-secondary outline-none flex-1 min-w-0"
-              />
-              <StatusIndicator status={item.status} showLabel={false} />
+            <div key={item.itemId} className="bg-surface border border-border rounded-lg p-2 text-xs space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-accent w-14 flex-shrink-0">{source.id}</span>
+                <span className="text-text-primary flex-1 min-w-0 truncate">{source.title}</span>
+                <select
+                  value={item.status}
+                  onChange={e => updateItem(item.itemId, { status: e.target.value as ComplianceStatus })}
+                  className="bg-surface-alt border border-border rounded px-1.5 py-1 text-[10px] text-text-secondary outline-none w-32"
+                >
+                  {complianceOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+                <select
+                  value={item.priority}
+                  onChange={e => updateItem(item.itemId, { priority: e.target.value as Priority })}
+                  className="bg-surface-alt border border-border rounded px-1.5 py-1 text-[10px] text-text-secondary outline-none w-16"
+                >
+                  {priorityOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+                <input
+                  type="text"
+                  placeholder="Owner"
+                  value={item.responsible}
+                  onChange={e => updateItem(item.itemId, { responsible: e.target.value })}
+                  className="bg-surface-alt border border-border rounded px-1.5 py-1 text-[10px] text-text-secondary outline-none w-24"
+                />
+                <input
+                  type="text"
+                  placeholder="Notes..."
+                  value={item.notes}
+                  onChange={e => updateItem(item.itemId, { notes: e.target.value })}
+                  className="bg-surface-alt border border-border rounded px-1.5 py-1 text-[10px] text-text-secondary outline-none flex-1 min-w-0"
+                />
+                <StatusIndicator status={item.status} showLabel={false} />
+              </div>
+              {/* Sprint 17: per-item evidence vault. Compact mode renders
+                  a tiny 'Attach' chip when there's nothing yet, then the
+                  pill list once files are attached. */}
+              <AttachmentList ownerKind="gap" ownerId={item.itemId} compact />
             </div>
           );
         })}

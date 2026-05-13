@@ -1,6 +1,7 @@
 import { useState, lazy, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronDown, ChevronRight, RefreshCw, ArrowLeft, Loader2, Sparkles, Wrench, FileText, Calendar, Mail } from 'lucide-react';
+import AttachmentList from '../shared/AttachmentList';
 import { useSchedulerContext } from '../../hooks/scanQueueContextRef';
 import ScheduleDialog from './ScheduleDialog';
 import type { AuditCheck, AuditReport, CheckStatus, SeverityLevel, AiSettings } from '../../data/auditTypes';
@@ -199,6 +200,13 @@ function FindingRow({ check, client, ai }: { check: AuditCheck; client?: Client;
                   Generate fix
                 </button>
               )}
+            </div>
+            {/* Sprint 17: per-finding evidence vault. The `ownerId` is
+                the check id (stable across rescans of the same domain),
+                so re-running a scan that surfaces the same finding
+                surfaces the existing attachments too. */}
+            <div className="pt-2" style={{ borderTop: '1px dashed var(--color-border)' }}>
+              <AttachmentList ownerKind="scan" ownerId={check.id} />
             </div>
           </div>
         </motion.div>

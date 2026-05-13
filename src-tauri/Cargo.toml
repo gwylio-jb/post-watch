@@ -33,3 +33,8 @@ tauri-plugin-http = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+# Sprint 17 Pack 4: evidence vault + scheduled PDF exports both need
+# native filesystem access. Scoped via capabilities/default.json to the
+# app-data and downloads directories only — no general FS access.
+tauri-plugin-fs = "2"
+tauri-plugin-dialog = "2"

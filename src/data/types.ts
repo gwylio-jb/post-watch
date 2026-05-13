@@ -85,6 +85,25 @@ export interface GapAnalysisSession {
 }
 
 /**
+ * V2.9 (Sprint 17 Pack 4): a file attached to a gap item or scan finding.
+ * The bytes themselves live in the OS-managed AppData vault directory;
+ * this record is the metadata persisted to localStorage so the UI knows
+ * what's there without scanning the disk on every render.
+ */
+export interface AttachmentMeta {
+  id: string;
+  ownerKind: 'gap' | 'scan';
+  /** Foreign key: GapAnalysisItem.itemId or AuditReport.id. */
+  ownerId: string;
+  name: string;
+  /** Bytes on disk. */
+  size: number;
+  addedAt: string;
+  /** Path relative to BaseDirectory.AppData. */
+  path: string;
+}
+
+/**
  * V2.8 (Sprint 16): a named frozen copy of a session's items, captured
  * by the user when they want a comparison point. Drives the snapshot-
  * diff feature in the Gap Analysis view (compare current state against
