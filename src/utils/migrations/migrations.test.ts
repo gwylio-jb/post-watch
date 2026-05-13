@@ -9,6 +9,7 @@
  */
 import { runMigrations, STORAGE_VERSION_KEY, TARGET_VERSION } from './index';
 import { migrateToV2 } from './v2';
+import { migrateToV3 } from './v3';
 
 const QUEUE_KEY    = 'clause-control:wp-audit-queue';
 const SCHEDULE_KEY = 'clause-control:wp-audit-schedules';
@@ -77,6 +78,19 @@ describe('migrations', () => {
       localStorage.setItem(SCHEDULE_KEY, '[]');
       const r = migrateToV2();
       expect(r.ran).toBe(false);
+    });
+  });
+
+  describe('migrateToV3', () => {
+    it('always reports ran=true — version-stamp only step', () => {
+      const r = migrateToV3();
+      expect(r.ran).toBe(true);
+    });
+
+    it('does not touch user data — encryption is enabled via Settings, not migration', () => {
+      localStorage.setItem('clause-control:wp-audit-reports', '[]');
+      migrateToV3();
+      expect(localStorage.getItem('clause-control:wp-audit-reports')).toBe('[]');
     });
   });
 });

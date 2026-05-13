@@ -26,6 +26,7 @@ import type { AuditReport } from './data/auditTypes';
 import type { GapAnalysisSession } from './data/types';
 import { deriveAlerts, filterDismissed } from './utils/deriveAlerts';
 import { runMigrations } from './utils/migrations';
+import { cleanupAfterCrash } from './utils/cryptoStorage';
 import { ScanQueueProvider } from './hooks/scanQueueContext';
 import LockGate from './components/auth/LockGate';
 
@@ -74,7 +75,13 @@ function AppContent() {
   // Versioned storage migrations — runs every pending step from the device's
   // current version up to the target. Each step is idempotent and the runner
   // is a no-op on already-current devices. See utils/migrations/index.ts.
+  //
+  // Sprint 15 also runs cryptoStorage.cleanupAfterCrash unconditionally on
+  // every boot (not just at the v3 migration step) so an interrupted
+  // enable-encryption flow can't leave stale plaintext alongside the
+  // encrypted copies. It's a no-op when no salt is set.
   useEffect(() => {
+    cleanupAfterCrash();
     const res = runMigrations();
     if (res.applied.length > 0) {
       console.info(`[post-watch] migrations applied: v${res.fromVersion} → v${res.toVersion} (steps: ${res.applied.join(', ')})`);

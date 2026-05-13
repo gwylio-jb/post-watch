@@ -11,9 +11,10 @@
  * scan engine picks them up with no other changes.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ExternalLink, Eye, EyeOff, Save, CheckCircle2, Sparkles, RefreshCw, Copy, AlertCircle, ShieldCheck, ShieldAlert, Archive, Calendar } from 'lucide-react';
+import { X, ExternalLink, Eye, EyeOff, Save, CheckCircle2, Sparkles, RefreshCw, Copy, AlertCircle, ShieldCheck, ShieldAlert, Archive, Calendar, Lock, Unlock, Loader2 } from 'lucide-react';
+import * as cryptoStorage from '../../utils/cryptoStorage';
 import type { AuditReport } from '../../data/auditTypes';
 import type { Schedule, SchedulerCadence } from '../../data/types';
 import { verifyChain, type VerificationResult } from '../../utils/integrity';
@@ -347,6 +348,9 @@ export default function SettingsPanel({ onClose }: SettingsPanelProps) {
 
           {/* ── Auto-backup reminders (Sprint 14) ─────────────────────────── */}
           <BackupReminder innerBlockStyle={innerBlockStyle} />
+
+          {/* ── Encryption (Sprint 15) ────────────────────────────────────── */}
+          <EncryptionPanel innerBlockStyle={innerBlockStyle} />
 
           {/* ── External API providers ────────────────────────────────────── */}
           {API_KEY_PROVIDERS.map(p => {
@@ -724,3 +728,215 @@ function summariseCadence(c: SchedulerCadence): string {
   if (c.kind === 'monthly')  return `Monthly on day ${c.day}`;
   return 'Custom';
 }
+
+// ─── Encryption (Sprint 15) ───────────────────────────────────────────────
+//
+// Three states surfaced to the user:
+//   - disabled (default): big 'Enable encryption' button + warning text.
+//   - unlocked (after enable): 'Encryption active' confirmation + a 'Lock
+//     now' button (next launch will prompt for the passphrase).
+//   - locked: not reachable via this panel — the LockGate replaces
+//     AppContent, so SettingsPanel can't open in this state. Still
+//     handled defensively below.
+//
+// The enable flow is a small in-component wizard, not a separate modal —
+// keeps Settings UX consistent and avoids modal-on-modal stacking.
+
+function EncryptionPanel({ innerBlockStyle }: { innerBlockStyle: React.CSSProperties }) {
+  // useSyncExternalStore so this component re-renders the instant
+  // status() flips after enable / lock.
+  const status = useSyncExternalStore(
+    cryptoStorage.subscribe,
+    cryptoStorage.status,
+    cryptoStorage.status,
+  );
+
+  return (
+    <div style={innerBlockStyle}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {status === 'disabled'
+              ? <Unlock className="w-4 h-4" style={{ color: 'var(--ink-3)' }} />
+              : <Lock className="w-4 h-4" style={{ color: 'var(--mint)' }} />}
+            <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink-1)' }}>
+              Encryption at rest
+            </span>
+            {status !== 'disabled' && (
+              <span style={{ fontSize: 10, color: 'var(--mint)', fontFamily: 'var(--font-redesign-mono)' }}>
+                active
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4 }}>
+            {status === 'disabled'
+              ? "Lock everything you've saved — scan reports, risks, clients, gap analyses — behind a passphrase. AES-GCM 256, derived from your passphrase with 250 000 PBKDF2 iterations. No data ever leaves the device."
+              : "Your storage is encrypted at rest. Next time you launch the app you'll be prompted to enter your passphrase before any saved data is visible."}
+          </div>
+        </div>
+      </div>
+
+      {status === 'disabled' && <EnableEncryptionWizard />}
+      {status === 'unlocked' && <UnlockedActions />}
+      {status === 'locked' && (
+        <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+          Storage is currently locked — close Settings and unlock to continue.
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Three-step wizard: warning → passphrase + confirm → submit. State is
+ * local because once submitted, status flips and EncryptionPanel
+ * re-renders the unlocked branch, so the wizard naturally unmounts.
+ */
+function EnableEncryptionWizard() {
+  const [step, setStep] = useState<'warning' | 'passphrase'>('warning');
+  const [pass, setPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const mismatch = pass.length > 0 && confirmPass.length > 0 && pass !== confirmPass;
+  const tooShort = pass.length > 0 && pass.length < 8;
+  const canSubmit = pass.length >= 8 && pass === confirmPass && !submitting;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await cryptoStorage.enableEncryption(pass);
+      // Success → status flips → EncryptionPanel re-renders. No further
+      // action needed here.
+    } catch (err) {
+      setError((err as Error).message || 'Could not enable encryption.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (step === 'warning') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{
+          display: 'flex', alignItems: 'flex-start', gap: 8,
+          fontSize: 12, color: 'var(--ink-2)',
+          background: 'rgba(217,119,6,0.08)',
+          border: '1px solid rgba(217,119,6,0.30)',
+          borderRadius: 10,
+          padding: '10px 12px',
+        }}>
+          <AlertCircle className="w-4 h-4" style={{ color: '#D97706', flexShrink: 0, marginTop: 1 }} />
+          <div>
+            <div style={{ fontWeight: 600, color: 'var(--ink-1)' }}>Back up your data first.</div>
+            <div style={{ marginTop: 4 }}>
+              If you forget your passphrase there's no way to recover what's stored — your passphrase is the only key. Use the Export Backup option before enabling so you have a copy you can re-import if anything goes wrong.
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button type="button" className="btn btn-primary" onClick={() => setStep('passphrase')}>
+            <Lock className="w-3.5 h-3.5" />
+            I've backed up — set a passphrase
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <label style={{
+          fontSize: 11, fontWeight: 600,
+          color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.08em',
+          fontFamily: 'var(--font-redesign-mono)',
+        }}>
+          Passphrase (minimum 8 characters)
+        </label>
+        <input
+          type="password"
+          value={pass}
+          onChange={e => { setPass(e.target.value); setError(null); }}
+          autoComplete="new-password"
+          spellCheck={false}
+          disabled={submitting}
+          style={inputCss}
+        />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <label style={{
+          fontSize: 11, fontWeight: 600,
+          color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.08em',
+          fontFamily: 'var(--font-redesign-mono)',
+        }}>
+          Confirm passphrase
+        </label>
+        <input
+          type="password"
+          value={confirmPass}
+          onChange={e => { setConfirmPass(e.target.value); setError(null); }}
+          autoComplete="new-password"
+          spellCheck={false}
+          disabled={submitting}
+          style={inputCss}
+        />
+      </div>
+      {(tooShort || mismatch || error) && (
+        <div style={{
+          fontSize: 12, color: 'var(--ember)',
+          background: 'rgba(255,74,28,0.10)',
+          border: '1px solid rgba(255,74,28,0.30)',
+          borderRadius: 10,
+          padding: '8px 12px',
+        }}>
+          {error
+            ? error
+            : tooShort
+              ? 'Passphrase must be at least 8 characters.'
+              : 'Passphrases do not match.'}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setStep('warning')} disabled={submitting}>
+          Back
+        </button>
+        <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={!canSubmit}>
+          {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
+          {submitting ? 'Encrypting…' : 'Enable encryption'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function UnlockedActions() {
+  return (
+    <div style={{ display: 'flex', gap: 8 }}>
+      <button
+        type="button"
+        className="btn btn-ghost"
+        onClick={() => cryptoStorage.lock()}
+        title="Lock now — you'll be prompted for your passphrase on next interaction or launch."
+      >
+        <Lock className="w-3.5 h-3.5" />
+        Lock now
+      </button>
+    </div>
+  );
+}
+
+const inputCss: React.CSSProperties = {
+  padding: '8px 12px',
+  borderRadius: 10,
+  border: '1px solid var(--line-2)',
+  background: 'var(--bg-2)',
+  color: 'var(--ink-1)',
+  fontSize: 13,
+  outline: 'none',
+  fontFamily: 'inherit',
+};

@@ -21,11 +21,12 @@
  */
 
 import { migrateToV2 } from './v2';
+import { migrateToV3 } from './v3';
 import { runClientMigration } from '../clientMigration';
 
 // Storage version after all migrations have run. Bump this number when a new
 // step lands. The key it's written to lives in `STORAGE_VERSION_KEY` below.
-const TARGET_VERSION = 2;
+const TARGET_VERSION = 3;
 const STORAGE_VERSION_KEY = 'clause-control:storage-version';
 
 const STEPS: Record<number, () => MigrationStepResult> = {
@@ -34,6 +35,9 @@ const STEPS: Record<number, () => MigrationStepResult> = {
   // The v2 step assumes V2.1 has already completed (via `runClientMigration`
   // below) before it touches anything.
   2: migrateToV2,
+  // v3: Sprint 15 — encryption boot-flow. Calls cryptoStorage.cleanupAfterCrash
+  // every launch so an interrupted enable can't leave plaintext on disk.
+  3: migrateToV3,
 };
 
 export interface MigrationStepResult {
