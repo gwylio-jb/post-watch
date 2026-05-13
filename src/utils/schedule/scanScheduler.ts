@@ -128,6 +128,28 @@ export function newBackupSchedule(
   };
 }
 
+/**
+ * Sprint 17 Pack 4 #3 — scheduled PDF report export. Same
+ * opt-in-download pattern as backups: when fired, queues a pending
+ * export the user generates from ReportHub.
+ */
+export function newReportExportSchedule(
+  template: 'executive-summary' | 'portfolio-summary',
+  cadence: SchedulerCadence,
+  opts: { clientId?: string } = {},
+  now: Date = new Date(),
+): Schedule {
+  return {
+    id: `sch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    kind: 'report-export',
+    template,
+    clientId: opts.clientId,
+    cadence,
+    active: true,
+    nextDueAt: computeNextDueAt(cadence, now),
+  };
+}
+
 // ─── Storage I/O ───────────────────────────────────────────────────────────
 
 const SCHEDULE_KEY = 'clause-control:wp-audit-schedules';

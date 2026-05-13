@@ -85,6 +85,42 @@ function Field({ label, required, children }: { label: string; required?: boolea
   );
 }
 
+function ColorField({
+  label, value, onChange, fallback,
+}: { label: string; value: string; onChange: (v: string) => void; fallback: string }) {
+  const displayValue = value || fallback;
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ fontSize: 10, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        {label}
+      </span>
+      <input
+        type="color"
+        value={displayValue}
+        onChange={e => onChange(e.target.value)}
+        style={{
+          width: 32, height: 32, padding: 0,
+          border: '1px solid var(--line-2)',
+          borderRadius: 6, cursor: 'pointer',
+          background: 'transparent',
+        }}
+      />
+      <input
+        type="text"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={fallback}
+        style={{
+          width: 90, padding: '4px 8px', borderRadius: 6,
+          border: '1px solid var(--line-2)', background: 'var(--bg-2)',
+          color: 'var(--ink-1)', fontSize: 11, outline: 'none',
+          fontFamily: 'var(--font-redesign-mono)',
+        }}
+      />
+    </div>
+  );
+}
+
 function ClientForm({ initial, onSave, onClose }: ClientFormProps) {
   const [name, setName] = useState(initial?.name ?? '');
   const [logo, setLogo] = useState<string | undefined>(initial?.logo);
@@ -92,6 +128,10 @@ function ClientForm({ initial, onSave, onClose }: ClientFormProps) {
   const [primaryContact, setPrimaryContact] = useState(initial?.primaryContact ?? '');
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const [logoError, setLogoError] = useState<string | null>(null);
+  // Sprint 17: per-client PDF brand override. Both colours must be set
+  // together — empty = "use default palette".
+  const [brandPrimary, setBrandPrimary] = useState<string>(initial?.brandColors?.primary ?? '');
+  const [brandSecondary, setBrandSecondary] = useState<string>(initial?.brandColors?.secondary ?? '');
 
   const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -110,6 +150,7 @@ function ClientForm({ initial, onSave, onClose }: ClientFormProps) {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) return;
+    const hasBrand = brandPrimary.trim() !== '' && brandSecondary.trim() !== '';
     onSave({
       id: initial?.id ?? newId(),
       name: trimmed,
@@ -118,6 +159,7 @@ function ClientForm({ initial, onSave, onClose }: ClientFormProps) {
       primaryContact: primaryContact.trim() || undefined,
       notes: notes.trim() || undefined,
       createdAt: initial?.createdAt ?? new Date().toISOString(),
+      brandColors: hasBrand ? { primary: brandPrimary, secondary: brandSecondary } : undefined,
     });
   };
 
@@ -263,6 +305,41 @@ function ClientForm({ initial, onSave, onClose }: ClientFormProps) {
               rows={3}
               style={{ ...formInputStyle, resize: 'vertical', minHeight: 72 }}
             />
+          </Field>
+
+          {/* Sprint 17: per-client PDF brand override.
+              Both colours must be set together — empty = "use default mint/violet". */}
+          <Field label="PDF brand colours (optional)">
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <ColorField
+                label="Primary"
+                value={brandPrimary}
+                onChange={setBrandPrimary}
+                fallback="#00D9A3"
+              />
+              <ColorField
+                label="Secondary"
+                value={brandSecondary}
+                onChange={setBrandSecondary}
+                fallback="#7C3AED"
+              />
+              {(brandPrimary || brandSecondary) && (
+                <button
+                  type="button"
+                  onClick={() => { setBrandPrimary(''); setBrandSecondary(''); }}
+                  style={{
+                    fontSize: 11, color: 'var(--ink-3)', background: 'none',
+                    border: 'none', cursor: 'pointer', textDecoration: 'underline',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  Reset to default
+                </button>
+              )}
+              <span style={{ fontSize: 11, color: 'var(--ink-3)', flexBasis: '100%', marginTop: 2 }}>
+                Applied to the cover gradient + kicker tag on every PDF exported for this client.
+              </span>
+            </div>
           </Field>
         </div>
 

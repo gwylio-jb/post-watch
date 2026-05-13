@@ -43,12 +43,28 @@ export function PdfMonoTag({ label, color }: { label: string; color?: string }) 
  * Signature 2-tone divider. @react-pdf has no linear-gradient support, so we
  * fake it with two adjacent View blocks — crisp in print, zero-cost.
  */
-export function PdfGradientRule({ height = 2, marginBottom = 14 }: { height?: number; marginBottom?: number }) {
+export function PdfGradientRule({
+  height = 2,
+  marginBottom = 14,
+  brand,
+}: {
+  height?: number;
+  marginBottom?: number;
+  /** Optional per-client brand override (Sprint 17). Falls back to mint→violet. */
+  brand?: { primary: string; secondary: string };
+}) {
+  const primary = brand?.primary ?? pdfColors.mint;
+  const secondary = brand?.secondary ?? pdfColors.violet;
+  // Middle band is a midpoint blend — for the default palette it's the
+  // existing `mintMuted`; for custom palettes we approximate with the
+  // primary at 80% via mixing. Picking a literal mid colour without
+  // gradient support is the best we can do without canvas tricks.
+  const middle = brand ? primary : pdfColors.mintMuted;
   return (
     <View style={{ flexDirection: 'row', height, marginBottom }}>
-      <View style={{ flex: 3, backgroundColor: pdfColors.mint }} />
-      <View style={{ flex: 2, backgroundColor: pdfColors.mintMuted }} />
-      <View style={{ flex: 2, backgroundColor: pdfColors.violet }} />
+      <View style={{ flex: 3, backgroundColor: primary }} />
+      <View style={{ flex: 2, backgroundColor: middle }} />
+      <View style={{ flex: 2, backgroundColor: secondary }} />
     </View>
   );
 }
@@ -261,6 +277,7 @@ export function PdfCover({
   subtitle,
   scoreBlock,
   timestamp,
+  brand,
 }: {
   clientLogo?: string;
   clientName?: string;
@@ -269,6 +286,9 @@ export function PdfCover({
   subtitle?: string;
   scoreBlock?: ReactNode;
   timestamp: string;
+  /** Per-client brand override applied to the gradient rule, kicker tag,
+   *  and corner glow (Sprint 17). Falls back to the default brand palette. */
+  brand?: { primary: string; secondary: string };
 }) {
   // Strip a leading "// " if the caller passed it — we now render the tag
   // ourselves via PdfMonoTag for consistent styling.
@@ -276,12 +296,12 @@ export function PdfCover({
 
   return (
     <View style={coverStyles.wrap}>
-      <PdfCornerGlow corner="top-right" size={220} />
+      <PdfCornerGlow corner="top-right" size={220} color={brand?.primary} />
 
       {/* Top row: mono tag + client + brand */}
       <View style={coverStyles.topRow}>
         <View style={{ flex: 1 }}>
-          <PdfMonoTag label={cleanDocType} />
+          <PdfMonoTag label={cleanDocType} color={brand?.primary} />
           <Text style={coverStyles.clientName}>{clientName ?? 'Unassigned'}</Text>
         </View>
         <View style={coverStyles.brandColumn}>
@@ -297,7 +317,7 @@ export function PdfCover({
         </View>
       </View>
 
-      <PdfGradientRule height={3} marginBottom={18} />
+      <PdfGradientRule height={3} marginBottom={18} brand={brand} />
 
       {/* Title block */}
       <Text style={coverStyles.title}>{title}</Text>

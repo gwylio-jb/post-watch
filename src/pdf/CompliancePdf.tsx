@@ -92,9 +92,11 @@ export interface CompliancePdfProps {
   session: GapAnalysisSession;
   clientName?: string;
   clientLogo?: string;
+  /** Sprint 17: per-client PDF brand override. */
+  brand?: { primary: string; secondary: string };
 }
 
-export default function CompliancePdf({ session, clientName, clientLogo }: CompliancePdfProps) {
+export default function CompliancePdf({ session, clientName, clientLogo, brand }: CompliancePdfProps) {
   const total = session.items.length;
   const compliant    = session.items.filter(i => i.status === 'Compliant').length;
   const partial      = session.items.filter(i => i.status === 'Partially Compliant').length;
@@ -129,6 +131,7 @@ export default function CompliancePdf({ session, clientName, clientLogo }: Compl
           title="ISO 27001 Compliance Status"
           subtitle={session.name}
           timestamp={timestamp}
+          brand={brand}
           scoreBlock={<ComplianceCallout pct={pct} compliant={compliant} total={total} highGaps={gaps.filter(g => g.priority === 'High').length} />}
         />
 

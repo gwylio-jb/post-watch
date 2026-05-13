@@ -18,7 +18,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { Schedule, SchedulerCadence } from '../data/types';
 import {
-  loadSchedules, saveSchedules, dueNow, markFired, newScanSchedule, newBackupSchedule,
+  loadSchedules, saveSchedules, dueNow, markFired,
+  newScanSchedule, newBackupSchedule, newReportExportSchedule,
 } from '../utils/schedule/scanScheduler';
 
 const TICK_MS = 60_000;
@@ -33,6 +34,12 @@ export interface UseScanSchedulerResult {
   ) => Schedule;
   /** Sprint 14 Pack 3 #3 — add a backup-reminder schedule. */
   addBackupSchedule: (cadence: SchedulerCadence) => Schedule;
+  /** Sprint 17 Pack 4 #3 — scheduled PDF report export. */
+  addReportExportSchedule: (
+    template: 'executive-summary' | 'portfolio-summary',
+    cadence: SchedulerCadence,
+    opts?: { clientId?: string },
+  ) => Schedule;
   /** Toggle active/paused. Soft-kept rows survive the toggle. */
   setActive: (id: string, active: boolean) => void;
   /** Soft-delete (sets deletedAt). Doesn't physically remove. */
@@ -112,6 +119,19 @@ export function useScanScheduler({ onFire }: UseScanSchedulerOpts): UseScanSched
     [writeSchedules],
   );
 
+  const addReportExportSchedule = useCallback(
+    (
+      template: 'executive-summary' | 'portfolio-summary',
+      cadence: SchedulerCadence,
+      opts: { clientId?: string } = {},
+    ) => {
+      const s = newReportExportSchedule(template, cadence, opts);
+      writeSchedules([...schedulesRef.current, s]);
+      return s;
+    },
+    [writeSchedules],
+  );
+
   const setActive = useCallback((id: string, active: boolean) => {
     writeSchedules(
       schedulesRef.current.map(s =>
@@ -130,5 +150,5 @@ export function useScanScheduler({ onFire }: UseScanSchedulerOpts): UseScanSched
     );
   }, [writeSchedules]);
 
-  return { schedules, addSchedule, addBackupSchedule, setActive, removeSchedule };
+  return { schedules, addSchedule, addBackupSchedule, addReportExportSchedule, setActive, removeSchedule };
 }

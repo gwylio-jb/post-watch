@@ -233,6 +233,17 @@ export interface Client {
   primaryContact?: string;
   notes?: string;
   createdAt: string;
+  /**
+   * V2.9 (Sprint 17 Pack 4): per-client PDF branding overrides.
+   * `primary` replaces the default mint accent (gradient rule, kicker tags,
+   * corner glow tint) on exported PDFs; `secondary` replaces the violet
+   * accent. Both are CSS-style hex strings ("#00D9A3"). When unset, the
+   * default brand palette is used.
+   */
+  brandColors?: {
+    primary: string;
+    secondary: string;
+  };
 }
 
 // ─── Portfolio mode (V2.5) ────────────────────────────────────────────────────
@@ -300,6 +311,19 @@ export type Schedule =
       lastFiredAt?: string;
       nextDueAt: string;
       deletedAt?: string;
+    }
+  | {
+      id: string;
+      kind: 'report-export';
+      /** Which template to generate when this schedule fires. */
+      template: 'executive-summary' | 'portfolio-summary';
+      /** Optional client scoping for executive-summary (omitted = applies to
+       *  all clients with data). Ignored for portfolio-summary. */
+      clientId?: string;
+      cadence: SchedulerCadence;
+      active: boolean;
+      lastFiredAt?: string;
+      nextDueAt: string;
+      deletedAt?: string;
     };
-    // Future: { kind: 'report-export'; ... } in Pack 4.
 

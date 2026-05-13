@@ -194,9 +194,11 @@ function FindingBlock({ check }: { check: AuditCheck }) {
 export interface WpSecurityPdfProps {
   report: AuditReport;
   clientName?: string;
+  /** Sprint 17: per-client PDF brand override (primary + secondary). */
+  brand?: { primary: string; secondary: string };
 }
 
-export default function WpSecurityPdf({ report, clientName }: WpSecurityPdfProps) {
+export default function WpSecurityPdf({ report, clientName, brand }: WpSecurityPdfProps) {
   const completedAt = report.completedAt ? new Date(report.completedAt) : new Date();
   const timestamp = formatFullTimestamp(completedAt);
 
@@ -235,6 +237,7 @@ export default function WpSecurityPdf({ report, clientName }: WpSecurityPdfProps
           subtitle={report.domain}
           timestamp={timestamp}
           scoreBlock={<ScoreCallout score={report.score} counts={counts} />}
+          brand={brand}
         />
 
         <PdfMeta rows={[

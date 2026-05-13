@@ -21,6 +21,9 @@ interface GenerateArgs {
   session?: GapAnalysisSession | null;
   clientName?: string;
   clientLogo?: string;
+  /** Sprint 17: per-client PDF brand override resolved by the caller (so
+   *  this module doesn't have to know how the Client record is stored). */
+  brand?: { primary: string; secondary: string };
   // Sprint 16 — portfolio-summary needs the full cross-client roster.
   clients?: Client[];
   reports?: AuditReport[];
@@ -73,13 +76,13 @@ export async function downloadReportPdf(args: GenerateArgs): Promise<string> {
   switch (args.kind) {
     case 'wp-security': {
       if (!args.report) throw new Error('WP Security PDF requires a scan report');
-      doc = <WpSecurityPdf report={args.report} clientName={args.clientName} />;
+      doc = <WpSecurityPdf report={args.report} clientName={args.clientName} brand={args.brand} />;
       filename = `PostWatch_WP_${safeFilename(args.report.domain)}_${dateStamp}.pdf`;
       break;
     }
     case 'compliance': {
       if (!args.session) throw new Error('Compliance PDF requires a gap analysis session');
-      doc = <CompliancePdf session={args.session} clientName={args.clientName} clientLogo={args.clientLogo} />;
+      doc = <CompliancePdf session={args.session} clientName={args.clientName} clientLogo={args.clientLogo} brand={args.brand} />;
       filename = `PostWatch_Compliance_${safeFilename(args.session.name)}_${dateStamp}.pdf`;
       break;
     }
@@ -90,6 +93,7 @@ export async function downloadReportPdf(args: GenerateArgs): Promise<string> {
           session={args.session ?? null}
           clientName={args.clientName}
           clientLogo={args.clientLogo}
+          brand={args.brand}
         />
       );
       filename = `PostWatch_Executive_${safeFilename(args.clientName ?? 'Summary')}_${dateStamp}.pdf`;
@@ -103,7 +107,7 @@ export async function downloadReportPdf(args: GenerateArgs): Promise<string> {
         args.sessions ?? [],
         args.risks ?? [],
       );
-      doc = <PortfolioSummaryPdf rows={rows} />;
+      doc = <PortfolioSummaryPdf rows={rows} brand={args.brand} />;
       filename = `PostWatch_Portfolio_${dateStamp}.pdf`;
       break;
     }

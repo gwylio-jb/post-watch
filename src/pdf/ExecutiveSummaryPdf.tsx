@@ -53,9 +53,11 @@ export interface ExecutiveSummaryPdfProps {
   session: GapAnalysisSession | null;
   clientName?: string;
   clientLogo?: string;
+  /** Sprint 17: per-client PDF brand override. */
+  brand?: { primary: string; secondary: string };
 }
 
-export default function ExecutiveSummaryPdf({ report, session, clientName, clientLogo }: ExecutiveSummaryPdfProps) {
+export default function ExecutiveSummaryPdf({ report, session, clientName, clientLogo, brand }: ExecutiveSummaryPdfProps) {
   const now = formatFullTimestamp(new Date());
 
   const wpScoreMeta = report ? scoreMeta(report.score) : null;
@@ -85,6 +87,7 @@ export default function ExecutiveSummaryPdf({ report, session, clientName, clien
           title="Security Posture Summary"
           subtitle="At-a-glance scorecard for leadership review"
           timestamp={now}
+          brand={brand}
         />
 
         {/* Twin scorecard */}

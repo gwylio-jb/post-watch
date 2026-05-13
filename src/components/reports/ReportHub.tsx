@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
-import { FileText, Download, Users, Loader2 } from 'lucide-react';
+import { FileText, Download, Users, Loader2, Calendar, Trash2, CheckCircle2 } from 'lucide-react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import type { AuditReport } from '../../data/auditTypes';
-import type { GapAnalysisSession, Client, RiskItem } from '../../data/types';
+import type { GapAnalysisSession, Client, RiskItem, SchedulerCadence, Schedule } from '../../data/types';
 import { UNASSIGNED_CLIENT_ID } from '../../utils/clientMigration';
+import { useSchedulerContext } from '../../hooks/scanQueueContextRef';
 import PortfolioActivity from './PortfolioActivity';
 
 // ─── Report type selector ─────────────────────────────────────────────────────
@@ -295,6 +296,7 @@ export default function ReportHub() {
       const { downloadReportPdf } = await import('../../pdf/generate');
       const dataClientId = selectedReport?.clientId ?? selectedSession?.clientId;
       const client = dataClientId ? pickerClients.find(c => c.id === dataClientId) : undefined;
+      const scopedClient = clientScope !== 'all' ? pickerClients.find(c => c.id === clientScope) : undefined;
       const kind =
         reportType === 'wp-security'        ? 'wp-security' as const
       : reportType === 'compliance-status' ? 'compliance' as const
@@ -304,8 +306,12 @@ export default function ReportHub() {
         kind,
         report: selectedReport,
         session: selectedSession,
-        clientName: client?.name ?? (clientScope !== 'all' ? pickerClients.find(c => c.id === clientScope)?.name : undefined),
+        clientName: client?.name ?? scopedClient?.name,
         clientLogo: selectedReport?.clientLogo ?? client?.logo,
+        // Sprint 17: per-client brand override. Prefer the data-owner
+        // client's brand; fall back to the scoped client; finally undefined
+        // (template uses default mint/violet).
+        brand: client?.brandColors ?? scopedClient?.brandColors,
         // Sprint 16: portfolio-summary needs the full roster.
         clients: pickerClients,
         reports: safeReports,
@@ -396,6 +402,8 @@ export default function ReportHub() {
           )}
         </div>
       </section>
+
+      <ScheduledExports />
 
       <PortfolioActivity
         clients={safeClients}
@@ -589,4 +597,198 @@ function EmptyPreview({ message }: { message: string }) {
       </p>
     </div>
   );
+}
+
+// ─── Scheduled exports (Sprint 17) ────────────────────────────────────────
+//
+// Two responsibilities:
+//   1. List active report-export schedules with pause/delete actions.
+//   2. Surface a banner per pending export firing (user clicks 'Generate'
+//      to download — same opt-in pattern as backup reminders).
+// Adding a new schedule is a small inline form.
+
+const PENDING_EXPORTS_KEY = 'post-watch:report-exports-pending';
+
+interface PendingExport {
+  scheduleId: string;
+  template: 'executive-summary' | 'portfolio-summary';
+  clientId?: string;
+  firedAt: string;
+}
+
+function ScheduledExports() {
+  const scheduler = useSchedulerContext();
+  const [pending, setPending] = useLocalStorage<PendingExport[]>(PENDING_EXPORTS_KEY, []);
+
+  // Pick out the report-export schedules — UI filters from the full list
+  // so wp-scan / backup schedules stay invisible here.
+  const exportSchedules = useMemo(
+    () => scheduler.schedules.filter(
+      (s): s is Extract<Schedule, { kind: 'report-export' }> =>
+        s.kind === 'report-export' && !s.deletedAt,
+    ),
+    [scheduler.schedules],
+  );
+
+  // Local form state — template + cadence picker.
+  const [showForm, setShowForm] = useState(false);
+  const [formTemplate, setFormTemplate] = useState<'executive-summary' | 'portfolio-summary'>('portfolio-summary');
+  const [formCadenceKind, setFormCadenceKind] = useState<SchedulerCadence['kind']>('monthly');
+  const [formMonthDay, setFormMonthDay] = useState(1);
+  const [formWeekday, setFormWeekday] = useState(1);
+  const [formIntervalDays, setFormIntervalDays] = useState(30);
+
+  const buildCadence = (): SchedulerCadence =>
+      formCadenceKind === 'weekly'   ? { kind: 'weekly', weekday: formWeekday as 0|1|2|3|4|5|6, hour: 9 }
+    : formCadenceKind === 'monthly'  ? { kind: 'monthly', day: formMonthDay, hour: 9 }
+    : { kind: 'interval', days: formIntervalDays };
+
+  const handleAdd = () => {
+    scheduler.addReportExportSchedule(formTemplate, buildCadence());
+    setShowForm(false);
+  };
+
+  const handleDismissPending = (idx: number) => {
+    setPending(prev => (Array.isArray(prev) ? prev : []).filter((_, i) => i !== idx));
+  };
+
+  return (
+    <section className="bubble" style={{ padding: 22 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            scheduled exports
+          </div>
+          <h3 style={{ margin: '2px 0 0', fontFamily: 'var(--font-redesign-display)', fontSize: 18, fontWeight: 700, color: 'var(--ink-1)' }}>
+            Auto-generate reports on a schedule
+          </h3>
+          <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--ink-3)' }}>
+            We never auto-download. When a schedule fires, a banner appears below — click 'Generate' when you're ready.
+          </p>
+        </div>
+        {!showForm && (
+          <button type="button" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => setShowForm(true)}>
+            <Calendar className="w-3.5 h-3.5" />
+            New schedule
+          </button>
+        )}
+      </div>
+
+      {/* Pending fires */}
+      {(pending ?? []).length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+          {(pending ?? []).map((p, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 12px', borderRadius: 10,
+              background: 'rgba(0,217,163,0.10)',
+              border: '1px solid rgba(0,217,163,0.30)',
+            }}>
+              <CheckCircle2 className="w-4 h-4" style={{ color: 'var(--mint)', flexShrink: 0 }} />
+              <div style={{ flex: 1, fontSize: 12, color: 'var(--ink-1)' }}>
+                <strong style={{ textTransform: 'capitalize' }}>{p.template.replace('-', ' ')}</strong> is ready to generate
+                {' — '}fired {new Date(p.firedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}.
+              </div>
+              <button type="button" className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 11 }} onClick={() => handleDismissPending(i)}>
+                Dismiss
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* New-schedule form */}
+      {showForm && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, borderRadius: 10, background: 'var(--glass-bg)', border: '1px solid var(--glass-bd)', marginBottom: 12 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <select
+              value={formTemplate}
+              onChange={e => setFormTemplate(e.target.value as 'executive-summary' | 'portfolio-summary')}
+              style={selectCss}
+            >
+              <option value="portfolio-summary">Portfolio summary</option>
+              <option value="executive-summary">Executive summary</option>
+            </select>
+            <select value={formCadenceKind} onChange={e => setFormCadenceKind(e.target.value as SchedulerCadence['kind'])} style={selectCss}>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="interval">Every N days</option>
+            </select>
+            {formCadenceKind === 'weekly' && (
+              <select value={formWeekday} onChange={e => setFormWeekday(parseInt(e.target.value, 10))} style={selectCss}>
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d, i) => <option key={i} value={i}>{d}</option>)}
+              </select>
+            )}
+            {formCadenceKind === 'monthly' && (
+              <select value={formMonthDay} onChange={e => setFormMonthDay(parseInt(e.target.value, 10))} style={selectCss}>
+                {Array.from({ length: 28 }, (_, i) => i + 1).map(d => <option key={d} value={d}>Day {d}</option>)}
+              </select>
+            )}
+            {formCadenceKind === 'interval' && (
+              <input
+                type="number" min={1} max={365} value={formIntervalDays}
+                onChange={e => setFormIntervalDays(Math.max(1, parseInt(e.target.value || '1', 10)))}
+                style={{ ...selectCss, width: 80 }}
+              />
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button type="button" className="btn btn-ghost" style={{ padding: '4px 12px', fontSize: 11 }} onClick={() => setShowForm(false)}>Cancel</button>
+            <button type="button" className="btn btn-primary" style={{ padding: '4px 12px', fontSize: 11 }} onClick={handleAdd}>
+              <CheckCircle2 className="w-3 h-3" /> Add
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Active schedules list */}
+      {exportSchedules.length === 0 ? (
+        <div style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)', padding: '8px 0' }}>
+          // No scheduled exports yet
+        </div>
+      ) : (
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {exportSchedules.map(s => (
+            <li key={s.id} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '8px 12px',
+              background: 'var(--bg-2)',
+              border: '1px solid var(--line-2)',
+              borderRadius: 8,
+              fontSize: 12,
+            }}>
+              <Calendar className="w-3.5 h-3.5" style={{ color: 'var(--ink-3)', flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: 'var(--ink-1)', fontWeight: 600, textTransform: 'capitalize' }}>
+                  {s.template.replace('-', ' ')}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>
+                  {summariseCadence(s.cadence)} · next due {new Date(s.nextDueAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                </div>
+              </div>
+              <button type="button" className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 11 }} onClick={() => scheduler.setActive(s.id, !s.active)}>
+                {s.active ? 'Pause' : 'Resume'}
+              </button>
+              <button type="button" className="icon-btn" style={{ width: 28, height: 28, borderRadius: 6 }} onClick={() => scheduler.removeSchedule(s.id)} title="Delete schedule">
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+const selectCss: React.CSSProperties = {
+  padding: '6px 10px', borderRadius: 8,
+  border: '1px solid var(--line-2)', background: 'var(--bg-2)',
+  color: 'var(--ink-1)', fontSize: 12, fontFamily: 'inherit',
+};
+
+function summariseCadence(c: SchedulerCadence): string {
+  if (c.kind === 'interval') return `Every ${c.days} day${c.days === 1 ? '' : 's'}`;
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  if (c.kind === 'weekly') return `Weekly on ${weekdays[c.weekday]}`;
+  return `Monthly on day ${c.day}`;
 }

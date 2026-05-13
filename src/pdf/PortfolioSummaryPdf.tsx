@@ -30,9 +30,13 @@ const styles = StyleSheet.create({
 
 interface PortfolioSummaryPdfProps {
   rows: ClientSummaryRow[];
+  /** Sprint 17: per-org brand override. Portfolio summary is cross-client
+   *  so there's no per-client brand to pick — caller passes the org's
+   *  default (Settings) here. */
+  brand?: { primary: string; secondary: string };
 }
 
-export default function PortfolioSummaryPdf({ rows }: PortfolioSummaryPdfProps) {
+export default function PortfolioSummaryPdf({ rows, brand }: PortfolioSummaryPdfProps) {
   const generatedAt = formatFullTimestamp(new Date());
   return (
     <Document title={`Post_Watch Portfolio Summary — ${generatedAt}`}>
@@ -41,6 +45,7 @@ export default function PortfolioSummaryPdf({ rows }: PortfolioSummaryPdfProps) 
         title="Portfolio summary"
         subtitle={`Current state across ${rows.length} client${rows.length === 1 ? '' : 's'}`}
         timestamp={generatedAt}
+        brand={brand}
       />
 
       <Page size="A4" style={styles.page} wrap>
