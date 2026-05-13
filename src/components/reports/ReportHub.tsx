@@ -8,7 +8,7 @@ import PortfolioActivity from './PortfolioActivity';
 
 // ─── Report type selector ─────────────────────────────────────────────────────
 
-type ReportType = 'wp-security' | 'compliance-status' | 'executive-summary';
+type ReportType = 'wp-security' | 'compliance-status' | 'executive-summary' | 'portfolio-summary';
 
 const REPORT_TYPES: { id: ReportType; label: string; description: string; icon: string }[] = [
   {
@@ -28,6 +28,12 @@ const REPORT_TYPES: { id: ReportType; label: string; description: string; icon: 
     label: 'Executive Summary',
     description: 'One-page combined security posture scorecard for leadership',
     icon: '📊',
+  },
+  {
+    id: 'portfolio-summary',
+    label: 'Portfolio Summary',
+    description: 'Cross-client roll-up — every client\'s current score, risks and compliance, one PDF',
+    icon: '🗂️',
   },
 ];
 
@@ -289,14 +295,22 @@ export default function ReportHub() {
       const { downloadReportPdf } = await import('../../pdf/generate');
       const dataClientId = selectedReport?.clientId ?? selectedSession?.clientId;
       const client = dataClientId ? pickerClients.find(c => c.id === dataClientId) : undefined;
+      const kind =
+        reportType === 'wp-security'        ? 'wp-security' as const
+      : reportType === 'compliance-status' ? 'compliance' as const
+      : reportType === 'portfolio-summary' ? 'portfolio-summary' as const
+      : 'executive-summary' as const;
       await downloadReportPdf({
-        kind: reportType === 'wp-security' ? 'wp-security'
-            : reportType === 'compliance-status' ? 'compliance'
-            : 'executive-summary',
+        kind,
         report: selectedReport,
         session: selectedSession,
         clientName: client?.name ?? (clientScope !== 'all' ? pickerClients.find(c => c.id === clientScope)?.name : undefined),
         clientLogo: selectedReport?.clientLogo ?? client?.logo,
+        // Sprint 16: portfolio-summary needs the full roster.
+        clients: pickerClients,
+        reports: safeReports,
+        sessions: safeSessions,
+        risks: Array.isArray(risks) ? risks : [],
       });
     } catch (err) {
       console.error('PDF generation failed', err);
@@ -310,7 +324,10 @@ export default function ReportHub() {
   const canDownload =
     (reportType === 'wp-security'       && !!selectedReport) ||
     (reportType === 'compliance-status' && !!selectedSession) ||
-    (reportType === 'executive-summary' && (!!selectedReport || !!selectedSession));
+    (reportType === 'executive-summary' && (!!selectedReport || !!selectedSession)) ||
+    // Sprint 16: portfolio summary just needs a non-empty roster — no
+    // per-report / per-session picker required.
+    (reportType === 'portfolio-summary' && pickerClients.length > 0);
 
   const selectStyle: React.CSSProperties = {
     padding: '10px 14px',

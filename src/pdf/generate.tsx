@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import type { DocumentProps } from '@react-pdf/renderer';
 import type { AuditReport } from '../data/auditTypes';
-import type { GapAnalysisSession } from '../data/types';
+import type { GapAnalysisSession, Client, RiskItem } from '../data/types';
 
 /*
  * Single entry point for triggering a PDF download. All callers go through
@@ -13,7 +13,7 @@ import type { GapAnalysisSession } from '../data/types';
  * `window.print()`, which is what broke in the V2.1 UAT.
  */
 
-type ReportKind = 'wp-security' | 'compliance' | 'executive-summary';
+type ReportKind = 'wp-security' | 'compliance' | 'executive-summary' | 'portfolio-summary';
 
 interface GenerateArgs {
   kind: ReportKind;
@@ -21,6 +21,11 @@ interface GenerateArgs {
   session?: GapAnalysisSession | null;
   clientName?: string;
   clientLogo?: string;
+  // Sprint 16 — portfolio-summary needs the full cross-client roster.
+  clients?: Client[];
+  reports?: AuditReport[];
+  sessions?: GapAnalysisSession[];
+  risks?: RiskItem[];
 }
 
 /**
@@ -43,13 +48,21 @@ export async function downloadReportPdf(args: GenerateArgs): Promise<string> {
   // Dynamic import pulls the renderer and templates into a separate chunk.
   // Vite/Rolldown splits per-import — everything inside the closures becomes
   // `pdf-<hash>.js` and is only fetched on first Download click.
-  const [{ pdf }, { default: WpSecurityPdf }, { default: CompliancePdf }, { default: ExecutiveSummaryPdf }] =
-    await Promise.all([
-      import('@react-pdf/renderer'),
-      import('./WpSecurityPdf'),
-      import('./CompliancePdf'),
-      import('./ExecutiveSummaryPdf'),
-    ]);
+  const [
+    { pdf },
+    { default: WpSecurityPdf },
+    { default: CompliancePdf },
+    { default: ExecutiveSummaryPdf },
+    { default: PortfolioSummaryPdf },
+    { buildPortfolioSummary },
+  ] = await Promise.all([
+    import('@react-pdf/renderer'),
+    import('./WpSecurityPdf'),
+    import('./CompliancePdf'),
+    import('./ExecutiveSummaryPdf'),
+    import('./PortfolioSummaryPdf'),
+    import('./portfolioSummary'),
+  ]);
 
   // `pdf()` expects a ReactElement whose props extend DocumentProps — the
   // <Document> root is what satisfies that constraint in each template.
@@ -80,6 +93,18 @@ export async function downloadReportPdf(args: GenerateArgs): Promise<string> {
         />
       );
       filename = `PostWatch_Executive_${safeFilename(args.clientName ?? 'Summary')}_${dateStamp}.pdf`;
+      break;
+    }
+    case 'portfolio-summary': {
+      if (!args.clients) throw new Error('Portfolio summary PDF requires the clients roster');
+      const rows = buildPortfolioSummary(
+        args.clients,
+        args.reports ?? [],
+        args.sessions ?? [],
+        args.risks ?? [],
+      );
+      doc = <PortfolioSummaryPdf rows={rows} />;
+      filename = `PostWatch_Portfolio_${dateStamp}.pdf`;
       break;
     }
   }
