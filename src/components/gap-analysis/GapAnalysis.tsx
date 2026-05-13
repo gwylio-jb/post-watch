@@ -1,9 +1,9 @@
 import { useState, useMemo, lazy, Suspense } from 'react';
-import { Trash2, ChevronRight, Plus, Sparkles, Upload } from 'lucide-react';
+import { Trash2, ChevronRight, Plus, Sparkles, Upload, Camera, GitBranch } from 'lucide-react';
 import CsvImportDialog from '../shared/CsvImportDialog';
 import { parseCsv } from '../../utils/csv/parseCsv';
 import { parseGapItemsFromCsv, mergeGapItems, type GapItemImportRow } from '../../utils/csv/parseGapItems';
-import type { AnnexAControl, ManagementClause, GapAnalysisSession, GapAnalysisItem, ComplianceStatus, Priority, Client } from '../../data/types';
+import type { AnnexAControl, ManagementClause, GapAnalysisSession, GapAnalysisItem, GapSessionSnapshot, ComplianceStatus, Priority, Client } from '../../data/types';
 import type { AiSettings } from '../../data/auditTypes';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { exportAsMarkdown, exportAsPrintHTML } from '../../utils/export';
@@ -12,9 +12,13 @@ import { gapNarrativePrompt, statementOfApplicabilityPrompt } from '../../utils/
 import ExportButton from '../shared/ExportButton';
 import StatusIndicator from '../shared/StatusIndicator';
 import GapDashboard from './GapDashboard';
+import SnapshotDialog from './SnapshotDialog';
+import SnapshotDiff from './SnapshotDiff';
 
 // Lazy-loaded — see ScanReport.tsx for the rationale.
 const AiPanel = lazy(() => import('../common/AiPanel'));
+
+const MAX_SNAPSHOTS_PER_SESSION = 20;
 
 interface GapAnalysisProps {
   controls: AnnexAControl[];
@@ -35,6 +39,10 @@ export default function GapAnalysis({ controls, clauses }: GapAnalysisProps) {
   const [soaDraftOpen, setSoaDraftOpen] = useState(false);
   // Sprint 13.5 — CSV import of gap items into an existing session.
   const [importOpen, setImportOpen] = useState(false);
+  // Sprint 16 — gap-session snapshots: save / list / compare.
+  const [snapshots, setSnapshots] = useLocalStorage<GapSessionSnapshot[]>('gap-session-snapshots', []);
+  const [snapshotDialogOpen, setSnapshotDialogOpen] = useState(false);
+  const [compareSnapshotId, setCompareSnapshotId] = useState<string | null>(null);
   const [sessionName, setSessionName] = useState('');
   const [sessionClientId, setSessionClientId] = useState<string>(UNASSIGNED_CLIENT_ID);
   const [scope, setScope] = useState<'full' | 'clauses' | 'controls'>('full');
@@ -292,6 +300,18 @@ export default function GapAnalysis({ controls, clauses }: GapAnalysisProps) {
           >
             <Upload className="w-3 h-3" /> Import CSV
           </button>
+
+          {/* Sprint 16 — gap-session snapshots */}
+          <SnapshotControls
+            session={activeSession}
+            snapshots={snapshots ?? []}
+            onSave={() => setSnapshotDialogOpen(true)}
+            onCompare={id => setCompareSnapshotId(id)}
+            onDelete={id => {
+              setSnapshots(prev => (Array.isArray(prev) ? prev : []).filter(s => s.id !== id));
+              if (compareSnapshotId === id) setCompareSnapshotId(null);
+            }}
+          />
           <button
             onClick={() => setShowDashboard(!showDashboard)}
             className={`px-3 py-1.5 text-xs rounded-md transition-colors ${showDashboard ? 'bg-accent/20 text-accent' : 'bg-surface border border-border text-text-secondary hover:text-text-primary'}`}
@@ -305,6 +325,51 @@ export default function GapAnalysis({ controls, clauses }: GapAnalysisProps) {
           />
         </div>
       </div>
+
+      {/* Sprint 16 — Snapshot diff panel renders inline below the toolbar */}
+      {(() => {
+        const cmp = (snapshots ?? []).find(s => s.id === compareSnapshotId);
+        return cmp ? (
+          <SnapshotDiff
+            snapshot={cmp}
+            current={activeSession.items}
+            onClose={() => setCompareSnapshotId(null)}
+          />
+        ) : null;
+      })()}
+
+      {snapshotDialogOpen && (
+        <SnapshotDialog
+          sessionName={activeSession.name}
+          defaultName={`Snapshot ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`}
+          onSave={(name, notes) => {
+            const fresh: GapSessionSnapshot = {
+              id: crypto.randomUUID(),
+              sessionId: activeSession.id,
+              name,
+              createdAt: new Date().toISOString(),
+              // Deep-clone items so future edits to the session don't mutate
+              // the frozen snapshot. JSON round-trip is safe here — gap items
+              // are plain data with no Dates / Maps.
+              items: JSON.parse(JSON.stringify(activeSession.items)) as GapAnalysisItem[],
+              notes: notes || undefined,
+            };
+            setSnapshots(prev => {
+              const safe = Array.isArray(prev) ? prev : [];
+              // Cap per-session: keep most recent MAX_SNAPSHOTS_PER_SESSION
+              // for this session, plus all snapshots from other sessions.
+              const sameSession = safe.filter(s => s.sessionId === activeSession.id);
+              const others = safe.filter(s => s.sessionId !== activeSession.id);
+              const trimmed = [fresh, ...sameSession]
+                .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+                .slice(0, MAX_SNAPSHOTS_PER_SESSION);
+              return [...others, ...trimmed];
+            });
+            setSnapshotDialogOpen(false);
+          }}
+          onClose={() => setSnapshotDialogOpen(false)}
+        />
+      )}
 
       {aiOpen && ai.model && (
         <Suspense fallback={null}>
@@ -454,5 +519,109 @@ export default function GapAnalysis({ controls, clauses }: GapAnalysisProps) {
         })}
       </div>
     </div>
+  );
+}
+
+// ─── Snapshot toolbar control ─────────────────────────────────────────────
+//
+// Sprint 16. Renders two buttons inline:
+//   - "Snapshot" → opens the SnapshotDialog to save a new one.
+//   - "Compare ▾" → dropdown listing existing snapshots for THIS session;
+//     each row picks a comparison target or deletes the snapshot.
+// Stays compact in the toolbar — no separate panel until the user drills in.
+
+function SnapshotControls({
+  session, snapshots, onSave, onCompare, onDelete,
+}: {
+  session: GapAnalysisSession;
+  snapshots: GapSessionSnapshot[];
+  onSave: () => void;
+  onCompare: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const forThisSession = useMemo(
+    () => snapshots
+      .filter(s => s.sessionId === session.id)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [snapshots, session.id],
+  );
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={onSave}
+        title="Freeze the current session state as a comparison point"
+        className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors bg-surface border border-border text-text-secondary hover:text-text-primary"
+      >
+        <Camera className="w-3 h-3" /> Snapshot
+      </button>
+      <div style={{ position: 'relative' }}>
+        <button
+          type="button"
+          onClick={() => setMenuOpen(o => !o)}
+          disabled={forThisSession.length === 0}
+          title={forThisSession.length === 0
+            ? 'Save a snapshot first to enable comparison'
+            : `${forThisSession.length} snapshot${forThisSession.length === 1 ? '' : 's'} for this session`}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md transition-colors bg-surface border border-border text-text-secondary hover:text-text-primary disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <GitBranch className="w-3 h-3" />
+          Compare ({forThisSession.length})
+        </button>
+        {menuOpen && forThisSession.length > 0 && (
+          <div
+            role="menu"
+            onMouseLeave={() => setMenuOpen(false)}
+            style={{
+              position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 50,
+              minWidth: 280, maxWidth: 360,
+              background: 'var(--bg-2)',
+              border: '1px solid var(--line-2)',
+              borderRadius: 10,
+              boxShadow: '0 12px 30px rgba(0,0,0,0.4)',
+              padding: 6,
+              maxHeight: 320, overflowY: 'auto',
+            }}
+          >
+            {forThisSession.map(s => (
+              <div
+                key={s.id}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '6px 8px', borderRadius: 8,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => { onCompare(s.id); setMenuOpen(false); }}
+                  style={{
+                    flex: 1,
+                    background: 'none', border: 'none', textAlign: 'left',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  <div style={{ fontSize: 12, color: 'var(--ink-1)', fontWeight: 600 }}>{s.name}</div>
+                  <div style={{ fontSize: 10, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>
+                    {new Date(s.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    {' · '}{s.items.length} items
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete(s.id)}
+                  title="Delete this snapshot"
+                  className="icon-btn"
+                  style={{ width: 24, height: 24, borderRadius: 6 }}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 }

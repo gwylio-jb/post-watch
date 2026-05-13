@@ -84,6 +84,29 @@ export interface GapAnalysisSession {
   soaDraft?: string;
 }
 
+/**
+ * V2.8 (Sprint 16): a named frozen copy of a session's items, captured
+ * by the user when they want a comparison point. Drives the snapshot-
+ * diff feature in the Gap Analysis view (compare current state against
+ * a saved baseline, post-audit state against pre-audit, etc.).
+ *
+ * Snapshots are explicit (user clicks "Save snapshot" with a label) —
+ * not auto-recorded daily. Sprint 17+ may add an auto-snapshot option
+ * if the manual flow turns out to be the wrong UX shape.
+ */
+export interface GapSessionSnapshot {
+  id: string;
+  /** The session this snapshot belongs to. */
+  sessionId: string;
+  /** User-given label (e.g. "Pre-audit baseline"). */
+  name: string;
+  createdAt: string;
+  /** Frozen copy of session.items at the time of save. */
+  items: GapAnalysisItem[];
+  /** Optional engagement context captured at save time. */
+  notes?: string;
+}
+
 export interface ImplementationItem {
   controlId: string;
   status: ImplementationStatus;
