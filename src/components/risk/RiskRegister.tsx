@@ -21,6 +21,7 @@ import type {
   CiaProperty,
 } from '../../data/types';
 import { UNASSIGNED_CLIENT_ID } from '../../utils/clientMigration';
+import { pushUndo } from '../../utils/undoBus';
 
 // ─── Risk score colour ────────────────────────────────────────────────────────
 
@@ -995,7 +996,25 @@ export default function RiskRegister() {
   }
 
   function deleteRisk(id: string) {
+    // Sprint 19: stash the deleted row and publish an undo entry so the
+    // global toast can offer to reinstate it within the TTL.
+    const list = Array.isArray(risks) ? risks : [];
+    const idx = list.findIndex(r => r.id === id);
+    const snapshot = idx >= 0 ? list[idx] : null;
     setRisks(prev => (Array.isArray(prev) ? prev : []).filter(r => r.id !== id));
+    if (snapshot) {
+      pushUndo({
+        label: 'Risk deleted',
+        revert: () => {
+          setRisks(prev => {
+            const cur = Array.isArray(prev) ? prev.slice() : [];
+            if (cur.some(r => r.id === snapshot.id)) return cur;
+            cur.splice(Math.min(idx, cur.length), 0, snapshot);
+            return cur;
+          });
+        },
+      });
+    }
   }
 
   function setThreshold(next: number | null) {

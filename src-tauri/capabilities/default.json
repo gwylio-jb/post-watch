@@ -3,10 +3,13 @@
   "identifier": "default",
   "description": "Post_Watch desktop permissions — HTTP fetch, external URL opening, scoped FS for evidence vault and PDF exports",
   "windows": [
-    "main"
+    "main",
+    "secondary-*"
   ],
   "permissions": [
     "core:default",
+    "core:webview:allow-create-webview-window",
+    "core:window:allow-set-focus",
     "http:default",
     {
       "identifier": "http:default",

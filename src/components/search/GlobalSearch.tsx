@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { Search, X, BookOpen, Shield, HelpCircle, FileCheck } from 'lucide-react';
+import { Search, X, BookOpen, Shield, HelpCircle, FileCheck, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { SearchResult } from '../../hooks/useSearch';
 import type { AppSection } from '../../data/types';
+import { useSearchHistory } from '../../hooks/useSearchHistory';
 
 interface GlobalSearchProps {
   isOpen: boolean;
@@ -31,11 +32,28 @@ const typeLabels: Record<string, string> = {
 export default function GlobalSearch({ isOpen, onClose, query, onQueryChange, results, onResultClick }: GlobalSearchProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Sprint 19: per-scope search history. Push when the user commits
+  // to a query (Enter, or click on a result). Show chips while the
+  // field is empty.
+  const { history, push: pushHistory, clear: clearHistory } = useSearchHistory('global-search');
+
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [isOpen]);
+
+  const handleResultClick = (result: SearchResult) => {
+    if (query.trim()) pushHistory(query);
+    onResultClick(result);
+    onClose();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && query.trim()) {
+      pushHistory(query);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -64,6 +82,7 @@ export default function GlobalSearch({ isOpen, onClose, query, onQueryChange, re
                 type="text"
                 value={query}
                 onChange={e => onQueryChange(e.target.value)}
+                onKeyDown={handleKeyDown}
                 placeholder="Search clauses, controls, audit questions, evidence..."
                 className="flex-1 bg-transparent text-text-primary placeholder-text-muted outline-none text-sm"
               />
@@ -82,7 +101,7 @@ export default function GlobalSearch({ isOpen, onClose, query, onQueryChange, re
                   return (
                     <button
                       key={`${result.type}-${result.id}-${i}`}
-                      onClick={() => { onResultClick(result); onClose(); }}
+                      onClick={() => handleResultClick(result)}
                       className="w-full flex items-start gap-3 px-4 py-3 hover:bg-surface-alt transition-colors text-left border-b border-border/50"
                     >
                       <Icon className="w-4 h-4 text-text-muted mt-0.5 flex-shrink-0" />
@@ -110,8 +129,36 @@ export default function GlobalSearch({ isOpen, onClose, query, onQueryChange, re
             )}
 
             {query.length < 2 && (
-              <div className="px-4 py-6 text-center text-text-muted text-xs">
-                Type at least 2 characters to search across clauses, controls, audit questions, and evidence
+              <div className="px-4 py-4">
+                {history.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase tracking-wider font-mono text-text-muted">Recent</span>
+                      <button
+                        onClick={clearHistory}
+                        className="text-[10px] text-text-muted hover:text-text-primary"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {history.map(q => (
+                        <button
+                          key={q}
+                          onClick={() => onQueryChange(q)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-alt text-xs text-text-primary hover:bg-surface-alt/70 border border-border"
+                        >
+                          <Clock className="w-3 h-3 text-text-muted" />
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-2 text-center text-text-muted text-xs">
+                    Type at least 2 characters to search across clauses, controls, audit questions, and evidence
+                  </div>
+                )}
               </div>
             )}
           </motion.div>

@@ -29,6 +29,9 @@ import { runMigrations } from './utils/migrations';
 import { cleanupAfterCrash } from './utils/cryptoStorage';
 import { ScanQueueProvider } from './hooks/scanQueueContext';
 import LockGate from './components/auth/LockGate';
+import UndoHost from './components/shared/UndoHost';
+import ShortcutOverlay from './components/shared/ShortcutOverlay';
+import { openNewWindow } from './utils/multiWindow';
 
 export default function App() {
   // Sprint 15 — LockGate wraps everything that touches encrypted state.
@@ -44,6 +47,8 @@ export default function App() {
     <LockGate>
       <ScanQueueProvider>
         <AppContent />
+        <UndoHost />
+        <ShortcutOverlay />
       </ScanQueueProvider>
     </LockGate>
   );
@@ -174,6 +179,27 @@ function AppContent() {
   }), [handleOpenSearch, handleCloseSearch]);
 
   useKeyboardShortcuts(shortcuts);
+
+  // Sprint 19: Cmd/Ctrl+Shift+N opens a second window pointed at the
+  // currently-active section. Lives outside useKeyboardShortcuts because
+  // that hook doesn't handle modifier combinations.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const inInput = !!target && (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      );
+      if (inInput) return;
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'N' || e.key === 'n')) {
+        e.preventDefault();
+        void openNewWindow({ section: activeSection });
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [activeSection]);
 
   return (
     <>
