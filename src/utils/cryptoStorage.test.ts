@@ -238,6 +238,133 @@ describe('cleanupAfterCrash', () => {
 
 // ─── subscribe ─────────────────────────────────────────────────────────────
 
+// ─── Sprint 18: DEK refactor + recovery + change-pass + disable ────────────
+
+describe('enableEncryption returns a recovery code', () => {
+  it('the code is a parseable 8-group-of-4 hex string', async () => {
+    const r = await cs.enableEncryption('test-pass');
+    expect(r.recoveryCode).toMatch(/^[0-9A-F]{4}(-[0-9A-F]{4}){7}$/);
+  });
+
+  it('writes both wrapped-DEK slots (passphrase + recovery)', async () => {
+    await cs.enableEncryption('test-pass');
+    expect(localStorage.getItem('clause-control:enc:__dek-pass')).toBeTruthy();
+    expect(localStorage.getItem('clause-control:enc:__dek-recovery')).toBeTruthy();
+  });
+});
+
+describe('unlockWithRecovery', () => {
+  it('opens with the printed recovery code', async () => {
+    const { recoveryCode } = await cs.enableEncryption('original-pass');
+    cs.lock();
+    expect(await cs.unlockWithRecovery(recoveryCode)).toBe(true);
+    expect(cs.status()).toBe('unlocked');
+  });
+
+  it('rejects a wrong recovery code', async () => {
+    await cs.enableEncryption('test-pass');
+    cs.lock();
+    expect(await cs.unlockWithRecovery('AAAA-BBBB-CCCC-DDDD-EEEE-FFFF-AAAA-BBBB')).toBe(false);
+  });
+
+  it('returns false when no recovery slot is set', async () => {
+    // Simulate a v1-migrated device that hasn't set a recovery code yet.
+    await cs.enableEncryption('test-pass');
+    localStorage.removeItem('clause-control:enc:__dek-recovery');
+    cs.lock();
+    expect(await cs.unlockWithRecovery('AAAA-BBBB-CCCC-DDDD-EEEE-FFFF-AAAA-BBBB')).toBe(false);
+  });
+});
+
+describe('changePassphrase', () => {
+  it('rotates the passphrase; new one unlocks, old one fails', async () => {
+    await cs.enableEncryption('old-pass');
+    expect(await cs.changePassphrase('old-pass', 'new-pass')).toBe(true);
+    cs.lock();
+    expect(await cs.unlock('old-pass')).toBe(false);
+    expect(await cs.unlock('new-pass')).toBe(true);
+  });
+
+  it('rejects a wrong old passphrase', async () => {
+    await cs.enableEncryption('right-pass');
+    expect(await cs.changePassphrase('wrong-pass', 'new-pass')).toBe(false);
+  });
+
+  it('leaves the recovery code unchanged', async () => {
+    const { recoveryCode } = await cs.enableEncryption('old-pass');
+    await cs.changePassphrase('old-pass', 'new-pass');
+    cs.lock();
+    expect(await cs.unlockWithRecovery(recoveryCode)).toBe(true);
+  });
+});
+
+describe('rotateRecoveryCode', () => {
+  it('mints a new recovery code that unlocks; old one stops working', async () => {
+    const { recoveryCode: original } = await cs.enableEncryption('test-pass');
+    const fresh = await cs.rotateRecoveryCode();
+    expect(fresh).not.toBeNull();
+    expect(fresh).not.toBe(original);
+    cs.lock();
+    expect(await cs.unlockWithRecovery(original)).toBe(false);
+    expect(await cs.unlockWithRecovery(fresh!)).toBe(true);
+  });
+
+  it('returns null when locked', async () => {
+    await cs.enableEncryption('test-pass');
+    cs.lock();
+    expect(await cs.rotateRecoveryCode()).toBeNull();
+  });
+});
+
+describe('disableEncryption', () => {
+  it('moves enc-prefixed user data back to plain keys', async () => {
+    localStorage.setItem('clause-control:wp-audit-reports', '[{"id":"r1"}]');
+    await cs.enableEncryption('test-pass');
+    expect(await cs.disableEncryption('test-pass')).toBe(true);
+    expect(localStorage.getItem('clause-control:wp-audit-reports')).toBe('[{"id":"r1"}]');
+  });
+
+  it('removes the salt, both wrapped DEKs, and the canary', async () => {
+    await cs.enableEncryption('test-pass');
+    await cs.disableEncryption('test-pass');
+    expect(localStorage.getItem('clause-control:storage-encrypted-salt')).toBeNull();
+    expect(localStorage.getItem('clause-control:enc:__dek-pass')).toBeNull();
+    expect(localStorage.getItem('clause-control:enc:__dek-recovery')).toBeNull();
+    expect(localStorage.getItem('clause-control:enc:__canary')).toBeNull();
+  });
+
+  it('rejects a wrong passphrase', async () => {
+    await cs.enableEncryption('right-pass');
+    expect(await cs.disableEncryption('wrong-pass')).toBe(false);
+    expect(cs.status()).toBe('unlocked');
+  });
+
+  it('flips status back to disabled', async () => {
+    await cs.enableEncryption('test-pass');
+    await cs.disableEncryption('test-pass');
+    expect(cs.status()).toBe('disabled');
+  });
+});
+
+describe('v1 → v2 migration on first unlock', () => {
+  it('a device that only has __canary (no __dek-pass) still unlocks; gets a fresh DEK wrapping', async () => {
+    // Hand-build a v1 device state: salt + canary + one enc value, all
+    // encrypted directly under the passphrase-derived key.
+    const { generateSalt, deriveKey, encryptString, saltToString } = await import('./crypto');
+    const salt = generateSalt();
+    const oldKey = await deriveKey('test-pass', salt);
+    localStorage.setItem('clause-control:storage-encrypted-salt', saltToString(salt));
+    localStorage.setItem('clause-control:enc:__canary', await encryptString(oldKey, 'post-watch:canary-v1'));
+    localStorage.setItem('clause-control:enc:wp-audit-reports', await encryptString(oldKey, '[{"id":"legacy"}]'));
+
+    expect(await cs.unlock('test-pass')).toBe(true);
+
+    // After migration, __dek-pass should exist + the value should still be readable.
+    expect(localStorage.getItem('clause-control:enc:__dek-pass')).toBeTruthy();
+    expect(cs.get('clause-control:wp-audit-reports')).toBe('[{"id":"legacy"}]');
+  });
+});
+
 describe('subscribe', () => {
   it('fires listeners on status transitions', async () => {
     const events: string[] = [];

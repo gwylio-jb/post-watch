@@ -18,37 +18,62 @@ import { Lock, AlertTriangle, Loader2 } from 'lucide-react';
 import * as cryptoStorage from '../../utils/cryptoStorage';
 
 export default function UnlockScreen() {
+  // Sprint 18: two unlock modes — passphrase (default) or recovery code.
+  // Recovery success forces the user to set a fresh passphrase before
+  // continuing.
+  const [mode, setMode] = useState<'passphrase' | 'recovery'>('passphrase');
   const [passphrase, setPassphrase] = useState('');
+  const [recoveryCode, setRecoveryCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showReset, setShowReset] = useState(false);
+  /** After recovery unlock succeeds, we render an inline "set new passphrase"
+   *  step. Status is already 'unlocked' so technically AppContent could mount,
+   *  but we keep the lock screen rendered until the user finishes rotating. */
+  const [postRecoveryRotate, setPostRecoveryRotate] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus the passphrase input on mount — keyboard users land in the
   // right place without having to tab.
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => { inputRef.current?.focus(); }, [mode]);
 
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!passphrase || submitting) return;
+    if (submitting) return;
     setSubmitting(true);
     setError(null);
     try {
-      const ok = await cryptoStorage.unlock(passphrase);
-      if (!ok) {
-        setError('Incorrect passphrase. Try again, or reset below if you no longer have it.');
-        // Clear the field so the user can re-type without a backspace.
-        setPassphrase('');
-        inputRef.current?.focus();
+      if (mode === 'passphrase') {
+        if (!passphrase) return;
+        const ok = await cryptoStorage.unlock(passphrase);
+        if (!ok) {
+          setError('Incorrect passphrase. Try again, switch to recovery, or reset below.');
+          setPassphrase('');
+          inputRef.current?.focus();
+        }
+        return;
       }
-      // On success, cryptoStorage.subscribe fires; LockGate re-renders
-      // and replaces us with AppContent. Nothing else to do here.
+      // recovery mode
+      if (!recoveryCode) return;
+      const ok = await cryptoStorage.unlockWithRecovery(recoveryCode);
+      if (!ok) {
+        setError('Recovery code did not unlock this device. Check the format — 8 groups of 4 hex characters.');
+        setRecoveryCode('');
+        inputRef.current?.focus();
+        return;
+      }
+      // Success — gate AppContent behind a forced passphrase rotation.
+      setPostRecoveryRotate(true);
     } catch (err) {
       setError((err as Error).message || 'Unexpected unlock failure');
     } finally {
       setSubmitting(false);
     }
   };
+
+  if (postRecoveryRotate) {
+    return <PostRecoveryRotate onDone={() => setPostRecoveryRotate(false)} />;
+  }
 
   return (
     <div className="app-shell theme-dark" style={{ display: 'grid', placeItems: 'center' }}>
@@ -96,27 +121,52 @@ export default function UnlockScreen() {
             color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.08em',
             fontFamily: 'var(--font-redesign-mono)',
           }}>
-            Passphrase
+            {mode === 'passphrase' ? 'Passphrase' : 'Recovery code'}
           </label>
-          <input
-            ref={inputRef}
-            type="password"
-            value={passphrase}
-            onChange={e => { setPassphrase(e.target.value); setError(null); }}
-            autoComplete="current-password"
-            spellCheck={false}
-            disabled={submitting}
-            style={{
-              padding: '10px 14px',
-              borderRadius: 12,
-              border: '1px solid var(--line-2)',
-              background: 'var(--bg-2)',
-              color: 'var(--ink-1)',
-              fontSize: 14,
-              outline: 'none',
-              fontFamily: 'inherit',
-            }}
-          />
+          {mode === 'passphrase' ? (
+            <input
+              ref={inputRef}
+              type="password"
+              value={passphrase}
+              onChange={e => { setPassphrase(e.target.value); setError(null); }}
+              autoComplete="current-password"
+              spellCheck={false}
+              disabled={submitting}
+              style={{
+                padding: '10px 14px',
+                borderRadius: 12,
+                border: '1px solid var(--line-2)',
+                background: 'var(--bg-2)',
+                color: 'var(--ink-1)',
+                fontSize: 14,
+                outline: 'none',
+                fontFamily: 'inherit',
+              }}
+            />
+          ) : (
+            <input
+              ref={inputRef}
+              type="text"
+              value={recoveryCode}
+              onChange={e => { setRecoveryCode(e.target.value); setError(null); }}
+              autoComplete="off"
+              spellCheck={false}
+              autoCapitalize="characters"
+              placeholder="AAAA-BBBB-CCCC-DDDD-EEEE-FFFF-AAAA-BBBB"
+              disabled={submitting}
+              style={{
+                padding: '10px 14px',
+                borderRadius: 12,
+                border: '1px solid var(--line-2)',
+                background: 'var(--bg-2)',
+                color: 'var(--ink-1)',
+                fontSize: 14,
+                outline: 'none',
+                fontFamily: 'var(--font-redesign-mono)',
+                letterSpacing: '0.05em',
+              }}
+            />
+          )}
 
           {error && (
             <div
@@ -136,15 +186,151 @@ export default function UnlockScreen() {
           <button
             type="submit"
             className="btn btn-primary"
-            disabled={!passphrase || submitting}
+            disabled={submitting || (mode === 'passphrase' ? !passphrase : !recoveryCode)}
             style={{ width: '100%', justifyContent: 'center' }}
           >
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-            {submitting ? 'Verifying…' : 'Unlock'}
+            {submitting ? 'Verifying…' : (mode === 'passphrase' ? 'Unlock' : 'Unlock with recovery code')}
           </button>
+
+          <div style={{ textAlign: 'center' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setMode(mode === 'passphrase' ? 'recovery' : 'passphrase');
+                setError(null);
+                setPassphrase('');
+                setRecoveryCode('');
+              }}
+              style={{
+                fontSize: 12, color: 'var(--ink-3)',
+                background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline',
+                fontFamily: 'inherit',
+              }}
+            >
+              {mode === 'passphrase' ? 'Use recovery code instead' : 'Use passphrase instead'}
+            </button>
+          </div>
         </form>
 
         <ResetSection showReset={showReset} setShowReset={setShowReset} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Sprint 18: rendered after a successful recovery-code unlock. The
+ * session is technically unlocked at this point, but we keep the lock
+ * screen up until the user picks a fresh passphrase — both as a clear
+ * UX signal that recovery is a one-shot path and because the previous
+ * passphrase is still valid against the wrapped DEK until rotated.
+ *
+ * On success, `setPassphraseFromRecovery` rewrites the __dek-pass
+ * wrapper under the new KEK, invalidating the old passphrase.
+ */
+function PostRecoveryRotate({ onDone }: { onDone: () => void }) {
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+    setError(null);
+    if (next.length < 8) {
+      setError('Use at least 8 characters.');
+      return;
+    }
+    if (next !== confirm) {
+      setError('Passphrases do not match.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const ok = await cryptoStorage.setPassphraseFromRecovery(next);
+      if (!ok) {
+        setError('Could not set new passphrase. Try locking and unlocking again.');
+        return;
+      }
+      onDone();
+    } catch (err) {
+      setError((err as Error).message || 'Unexpected error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="app-shell theme-dark" style={{ display: 'grid', placeItems: 'center' }}>
+      <div className="aurora"><div className="blob" /></div>
+      <div className="grain" />
+      <div
+        className="bubble"
+        style={{
+          position: 'relative', zIndex: 2, width: '100%', maxWidth: 420,
+          padding: 32, display: 'flex', flexDirection: 'column', gap: 20,
+        }}
+      >
+        <div>
+          <h1 style={{ margin: 0, fontFamily: 'var(--font-redesign-display)', fontSize: 22, fontWeight: 700, color: 'var(--ink-1)' }}>
+            Set a new passphrase
+          </h1>
+          <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--ink-3)' }}>
+            Recovery unlock succeeded. Choose a new passphrase to replace the forgotten one — the old passphrase will no longer work.
+          </p>
+        </div>
+
+        <form onSubmit={handle} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <input
+            type="password"
+            value={next}
+            onChange={e => { setNext(e.target.value); setError(null); }}
+            placeholder="New passphrase"
+            autoComplete="new-password"
+            disabled={submitting}
+            style={{
+              padding: '10px 14px', borderRadius: 12,
+              border: '1px solid var(--line-2)', background: 'var(--bg-2)',
+              color: 'var(--ink-1)', fontSize: 14, outline: 'none', fontFamily: 'inherit',
+            }}
+          />
+          <input
+            type="password"
+            value={confirm}
+            onChange={e => { setConfirm(e.target.value); setError(null); }}
+            placeholder="Confirm new passphrase"
+            autoComplete="new-password"
+            disabled={submitting}
+            style={{
+              padding: '10px 14px', borderRadius: 12,
+              border: '1px solid var(--line-2)', background: 'var(--bg-2)',
+              color: 'var(--ink-1)', fontSize: 14, outline: 'none', fontFamily: 'inherit',
+            }}
+          />
+
+          {error && (
+            <div role="alert" style={{
+              fontSize: 12, color: 'var(--ember)',
+              background: 'rgba(255,74,28,0.10)',
+              border: '1px solid rgba(255,74,28,0.30)',
+              borderRadius: 10, padding: '8px 12px',
+            }}>
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={!next || !confirm || submitting}
+            style={{ width: '100%', justifyContent: 'center' }}
+          >
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+            {submitting ? 'Saving…' : 'Save passphrase'}
+          </button>
+        </form>
       </div>
     </div>
   );

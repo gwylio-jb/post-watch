@@ -751,6 +751,12 @@ function EncryptionPanel({ innerBlockStyle }: { innerBlockStyle: React.CSSProper
     cryptoStorage.status,
   );
 
+  // Sprint 18: the panel-level recovery-code overlay. Set by the enable
+  // wizard on success, also by rotate-recovery + setup-recovery flows.
+  // Survives the disabled → unlocked status flip so users always see
+  // the code at least once.
+  const [pendingRecovery, setPendingRecovery] = useState<string | null>(null);
+
   return (
     <div style={innerBlockStyle}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
@@ -776,12 +782,18 @@ function EncryptionPanel({ innerBlockStyle }: { innerBlockStyle: React.CSSProper
         </div>
       </div>
 
-      {status === 'disabled' && <EnableEncryptionWizard />}
-      {status === 'unlocked' && <UnlockedActions />}
-      {status === 'locked' && (
-        <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
-          Storage is currently locked — close Settings and unlock to continue.
-        </div>
+      {pendingRecovery ? (
+        <RecoveryCodeReveal code={pendingRecovery} onAcknowledge={() => setPendingRecovery(null)} />
+      ) : (
+        <>
+          {status === 'disabled' && <EnableEncryptionWizard onEnabled={code => setPendingRecovery(code)} />}
+          {status === 'unlocked' && <UnlockedActions onRecoveryCode={setPendingRecovery} />}
+          {status === 'locked' && (
+            <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+              Storage is currently locked — close Settings and unlock to continue.
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -792,7 +804,11 @@ function EncryptionPanel({ innerBlockStyle }: { innerBlockStyle: React.CSSProper
  * local because once submitted, status flips and EncryptionPanel
  * re-renders the unlocked branch, so the wizard naturally unmounts.
  */
-function EnableEncryptionWizard() {
+function EnableEncryptionWizard({ onEnabled }: { onEnabled: (recoveryCode: string) => void }) {
+  // Sprint 18: on successful enable, hands the recovery code up to the
+  // panel via onEnabled. The panel keeps rendering the reveal UI until
+  // the user confirms; status has already flipped to 'unlocked' at that
+  // point, so this wizard component unmounts when the panel chooses.
   const [step, setStep] = useState<'warning' | 'passphrase'>('warning');
   const [pass, setPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
@@ -809,9 +825,8 @@ function EnableEncryptionWizard() {
     setSubmitting(true);
     setError(null);
     try {
-      await cryptoStorage.enableEncryption(pass);
-      // Success → status flips → EncryptionPanel re-renders. No further
-      // action needed here.
+      const result = await cryptoStorage.enableEncryption(pass);
+      onEnabled(result.recoveryCode);
     } catch (err) {
       setError((err as Error).message || 'Could not enable encryption.');
     } finally {
@@ -914,18 +929,284 @@ function EnableEncryptionWizard() {
   );
 }
 
-function UnlockedActions() {
+function UnlockedActions({ onRecoveryCode }: { onRecoveryCode: (code: string) => void }) {
+  const [openSection, setOpenSection] = useState<null | 'change' | 'disable' | 'recovery'>(null);
+  const hasRecovery = cryptoStorage.hasRecoveryCode();
+
   return (
-    <div style={{ display: 'flex', gap: 8 }}>
-      <button
-        type="button"
-        className="btn btn-ghost"
-        onClick={() => cryptoStorage.lock()}
-        title="Lock now — you'll be prompted for your passphrase on next interaction or launch."
-      >
-        <Lock className="w-3.5 h-3.5" />
-        Lock now
-      </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* Action chip row */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          onClick={() => cryptoStorage.lock()}
+          title="Lock now — passphrase prompt on next interaction or launch."
+        >
+          <Lock className="w-3.5 h-3.5" /> Lock now
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          onClick={() => setOpenSection(s => s === 'change' ? null : 'change')}
+        >
+          <RefreshCw className="w-3.5 h-3.5" /> Change passphrase
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          onClick={() => setOpenSection(s => s === 'recovery' ? null : 'recovery')}
+        >
+          <ShieldCheck className="w-3.5 h-3.5" />
+          {hasRecovery ? 'Rotate recovery code' : 'Set up recovery code'}
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          onClick={() => setOpenSection(s => s === 'disable' ? null : 'disable')}
+          title="Turn encryption off — reverts data to plain on disk."
+        >
+          <Unlock className="w-3.5 h-3.5" /> Disable
+        </button>
+      </div>
+
+      {openSection === 'change'   && <ChangePassphraseForm onDone={() => setOpenSection(null)} />}
+      {openSection === 'recovery' && (
+        <RecoveryRotateForm
+          hasExisting={hasRecovery}
+          onIssued={code => { onRecoveryCode(code); setOpenSection(null); }}
+          onCancel={() => setOpenSection(null)}
+        />
+      )}
+      {openSection === 'disable'  && <DisableEncryptionForm onDone={() => setOpenSection(null)} />}
+    </div>
+  );
+}
+
+function ChangePassphraseForm({ onDone }: { onDone: () => void }) {
+  const [oldPass, setOldPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const mismatch = newPass.length > 0 && confirmPass.length > 0 && newPass !== confirmPass;
+  const tooShort = newPass.length > 0 && newPass.length < 8;
+  const canSubmit = oldPass && newPass.length >= 8 && newPass === confirmPass && !submitting;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const ok = await cryptoStorage.changePassphrase(oldPass, newPass);
+      if (!ok) {
+        setError('Current passphrase is incorrect.');
+        return;
+      }
+      onDone();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, borderRadius: 10, background: 'var(--glass-bg)', border: '1px solid var(--glass-bd)' }}>
+      <input type="password" placeholder="Current passphrase" value={oldPass} onChange={e => { setOldPass(e.target.value); setError(null); }} disabled={submitting} style={inputCss} autoComplete="current-password" />
+      <input type="password" placeholder="New passphrase (min 8 chars)" value={newPass} onChange={e => { setNewPass(e.target.value); setError(null); }} disabled={submitting} style={inputCss} autoComplete="new-password" />
+      <input type="password" placeholder="Confirm new passphrase" value={confirmPass} onChange={e => { setConfirmPass(e.target.value); setError(null); }} disabled={submitting} style={inputCss} autoComplete="new-password" />
+      {(tooShort || mismatch || error) && (
+        <div style={{ fontSize: 12, color: 'var(--ember)' }}>
+          {error ?? (tooShort ? 'New passphrase must be at least 8 characters.' : 'New passphrases do not match.')}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" className="btn btn-ghost" style={{ flex: 1 }} onClick={onDone} disabled={submitting}>Cancel</button>
+        <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={!canSubmit}>
+          {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+          Save
+        </button>
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+        Your recovery code is unchanged. Rotate it separately if you need a fresh one.
+      </div>
+    </form>
+  );
+}
+
+function RecoveryRotateForm({
+  hasExisting, onIssued, onCancel,
+}: { hasExisting: boolean; onIssued: (code: string) => void; onCancel: () => void }) {
+  const [confirm, setConfirm] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const required = hasExisting ? 'rotate' : 'setup';
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (confirm !== required) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const code = hasExisting
+        ? await cryptoStorage.rotateRecoveryCode()
+        : await cryptoStorage.setupRecoveryCode();
+      if (!code) {
+        setError('Could not generate a recovery code — make sure encryption is unlocked.');
+        return;
+      }
+      onIssued(code);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, borderRadius: 10, background: 'var(--glass-bg)', border: '1px solid var(--glass-bd)' }}>
+      <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>
+        {hasExisting
+          ? <>This will invalidate the previous recovery code. Type <code>{required}</code> below to confirm.</>
+          : <>Generate a recovery code you can use to unlock if you forget your passphrase. Type <code>{required}</code> below to confirm.</>}
+      </div>
+      <input type="text" placeholder={`Type '${required}' to confirm`} value={confirm} onChange={e => setConfirm(e.target.value)} disabled={submitting} style={inputCss} />
+      {error && <div style={{ fontSize: 12, color: 'var(--ember)' }}>{error}</div>}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" className="btn btn-ghost" style={{ flex: 1 }} onClick={onCancel} disabled={submitting}>Cancel</button>
+        <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={confirm !== required || submitting}>
+          {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+          {hasExisting ? 'Rotate' : 'Generate'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function DisableEncryptionForm({ onDone }: { onDone: () => void }) {
+  const [pass, setPass] = useState('');
+  const [confirmText, setConfirmText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canSubmit = pass.length > 0 && confirmText === 'disable' && !submitting;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const ok = await cryptoStorage.disableEncryption(pass);
+      if (!ok) {
+        setError('Passphrase is incorrect.');
+        return;
+      }
+      onDone();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} style={{
+      display: 'flex', flexDirection: 'column', gap: 8,
+      padding: 12, borderRadius: 10,
+      background: 'rgba(255,74,28,0.08)',
+      border: '1px solid rgba(255,74,28,0.30)',
+    }}>
+      <div style={{ fontSize: 12, color: 'var(--ember)', fontWeight: 600 }}>
+        Disable encryption
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>
+        Your data will be written back to plain localStorage. Anyone with access to this device's app-data folder will be able to read it. Type <code>disable</code> to confirm.
+      </div>
+      <input type="password" placeholder="Current passphrase" value={pass} onChange={e => { setPass(e.target.value); setError(null); }} disabled={submitting} style={inputCss} autoComplete="current-password" />
+      <input type="text" placeholder="Type 'disable' to confirm" value={confirmText} onChange={e => setConfirmText(e.target.value)} disabled={submitting} style={inputCss} />
+      {error && <div style={{ fontSize: 12, color: 'var(--ember)' }}>{error}</div>}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" className="btn btn-ghost" style={{ flex: 1 }} onClick={onDone} disabled={submitting}>Cancel</button>
+        <button type="submit" style={{
+          flex: 1, padding: '8px 14px', borderRadius: 10,
+          background: canSubmit ? 'var(--ember)' : 'rgba(255,74,28,0.30)',
+          color: canSubmit ? '#fff' : 'var(--ember)',
+          border: 'none', cursor: canSubmit ? 'pointer' : 'not-allowed',
+          fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
+        }} disabled={!canSubmit}>
+          {submitting ? 'Disabling…' : 'Disable encryption'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function RecoveryCodeReveal({ code, onAcknowledge }: { code: string; onAcknowledge: () => void }) {
+  const [confirmed, setConfirmed] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* clipboard denied — user can still read + transcribe */ }
+  };
+
+  // Split into rows of 4 groups for legibility.
+  const groups = code.split('-');
+  const row1 = groups.slice(0, 4).join(' ');
+  const row2 = groups.slice(4, 8).join(' ');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{
+        padding: '12px 14px',
+        background: 'rgba(0,217,163,0.08)',
+        border: '1px solid rgba(0,217,163,0.30)',
+        borderRadius: 10,
+        display: 'flex', alignItems: 'flex-start', gap: 10,
+      }}>
+        <ShieldCheck className="w-4 h-4" style={{ color: 'var(--mint)', flexShrink: 0, marginTop: 1 }} />
+        <div style={{ fontSize: 12, color: 'var(--ink-1)' }}>
+          <div style={{ fontWeight: 600 }}>Save your recovery code somewhere safe.</div>
+          <div style={{ marginTop: 4, color: 'var(--ink-2)' }}>
+            You'll need this to unlock if you forget your passphrase. We can't show it to you again, and we never store it in plain form anywhere.
+          </div>
+        </div>
+      </div>
+
+      <div style={{
+        padding: 14, borderRadius: 10,
+        background: 'var(--bg-2)',
+        border: '1px solid var(--line-2)',
+        fontFamily: 'var(--font-redesign-mono)',
+        fontSize: 16, letterSpacing: '0.05em',
+        color: 'var(--ink-1)',
+        textAlign: 'center',
+      }}>
+        <div>{row1}</div>
+        <div style={{ marginTop: 4 }}>{row2}</div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" className="btn btn-ghost" onClick={handleCopy}>
+          {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+        <label style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink-2)' }}>
+          <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} style={{ accentColor: 'var(--mint)' }} />
+          I've saved this somewhere safe
+        </label>
+        <button type="button" className="btn btn-primary" onClick={onAcknowledge} disabled={!confirmed}>
+          <CheckCircle2 className="w-3.5 h-3.5" /> Continue
+        </button>
+      </div>
     </div>
   );
 }

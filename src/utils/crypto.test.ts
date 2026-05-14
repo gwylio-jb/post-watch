@@ -21,6 +21,7 @@ import {
   generateSalt, saltToString, saltFromString,
   deriveKey,
   encryptString, decryptString,
+  generateDek, dekFromBytes, wrapDek, unwrapDek,
   CRYPTO_PARAMS,
 } from './crypto';
 
@@ -143,5 +144,67 @@ describe('failure modes', () => {
   it('non-base64 blob fails (atob throws)', async () => {
     const key = await deriveKey('test-pass', generateSalt());
     await expect(decryptString(key, 'definitely not base64 !!!')).rejects.toThrow();
+  });
+});
+
+// ─── DEK wrap / unwrap (Sprint 18) ────────────────────────────────────────
+
+describe('DEK lifecycle', () => {
+  it('generateDek produces the expected byte length', () => {
+    const dek = generateDek();
+    expect(dek.length).toBe(CRYPTO_PARAMS.KEY_LENGTH_BITS / 8);
+  });
+
+  it('two generated DEKs are not identical', () => {
+    const a = generateDek();
+    const b = generateDek();
+    // Astronomically unlikely.
+    expect(Array.from(a).join(',')).not.toBe(Array.from(b).join(','));
+  });
+
+  it('dekFromBytes produces a usable AES-GCM CryptoKey', async () => {
+    const dek = generateDek();
+    const key = await dekFromBytes(dek);
+    expect(key.algorithm.name).toBe('AES-GCM');
+    expect(key.usages).toContain('encrypt');
+    expect(key.usages).toContain('decrypt');
+  });
+
+  it('wrapDek + unwrapDek round-trip preserves the raw bytes', async () => {
+    const kek = await deriveKey('test-pass', generateSalt());
+    const dek = generateDek();
+    const blob = await wrapDek(kek, dek);
+    const recovered = await unwrapDek(kek, blob);
+    expect(Array.from(recovered)).toEqual(Array.from(dek));
+  });
+
+  it('wrapDek produces a different blob each call (fresh IV per wrap)', async () => {
+    const kek = await deriveKey('test-pass', generateSalt());
+    const dek = generateDek();
+    const a = await wrapDek(kek, dek);
+    const b = await wrapDek(kek, dek);
+    expect(a).not.toBe(b);
+  });
+
+  it('unwrapDek with the wrong KEK rejects (GCM tag mismatch)', async () => {
+    const salt = generateSalt();
+    const right = await deriveKey('correct', salt);
+    const wrong = await deriveKey('wrong', salt);
+    const dek = generateDek();
+    const blob = await wrapDek(right, dek);
+    await expect(unwrapDek(wrong, blob)).rejects.toThrow();
+  });
+
+  it('a DEK can decrypt blobs encrypted via the encryptString API', async () => {
+    // End-to-end shape: DEK is the data-encryption key in cryptoStorage.
+    const dek = generateDek();
+    const key = await dekFromBytes(dek);
+    const blob = await encryptString(key, 'sensitive');
+    expect(await decryptString(key, blob)).toBe('sensitive');
+  });
+
+  it('unwrapping malformed blob fails fast', async () => {
+    const kek = await deriveKey('test-pass', generateSalt());
+    await expect(unwrapDek(kek, '')).rejects.toThrow(/short|malformed/i);
   });
 });

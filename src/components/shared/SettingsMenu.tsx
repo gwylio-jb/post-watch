@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Settings, Download, Upload, CheckCircle2, AlertCircle, SlidersHorizontal } from 'lucide-react';
-import { exportBackup, importBackup, summariseStorage } from '../../utils/backup';
+import { exportBackup, importBackup, summariseStorage, detectBackupFormat } from '../../utils/backup';
 import SettingsPanel from '../settings/SettingsPanel';
 
 type Toast = { kind: 'success' | 'error'; message: string } | null;
@@ -52,10 +52,22 @@ export default function SettingsMenu() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     try {
-      exportBackup();
-      setToast({ kind: 'success', message: 'Backup downloaded' });
+      // Offer an optional encryption passphrase. Empty/cancel ⇒ plain backup.
+      // Browser prompt() is fine here — this is a low-frequency settings
+      // action and avoids dragging in a modal for the simple case.
+      const pass = window.prompt(
+        'Optional: enter a passphrase to encrypt the backup file.\n\nLeave blank for an unencrypted (human-readable) backup.',
+        ''
+      );
+      // null === cancel
+      if (pass === null) { setOpen(false); return; }
+      await exportBackup(pass ? { passphrase: pass } : {});
+      setToast({
+        kind: 'success',
+        message: pass ? 'Encrypted backup downloaded' : 'Backup downloaded',
+      });
     } catch (e) {
       setToast({ kind: 'error', message: (e as Error).message });
     }
@@ -77,7 +89,17 @@ export default function SettingsMenu() {
     if (!ok) return;
 
     try {
-      const result = await importBackup(file);
+      // Sniff format first so we can prompt for a passphrase when needed,
+      // rather than letting importBackup throw and forcing the user to
+      // re-select the file.
+      const fmt = await detectBackupFormat(file);
+      let passphrase: string | undefined;
+      if (fmt === 'encrypted') {
+        const p = window.prompt('This backup is encrypted. Enter the passphrase to decrypt:');
+        if (p === null) return; // user cancelled
+        passphrase = p;
+      }
+      const result = await importBackup(file, passphrase);
       setToast({
         kind: 'success',
         message: `Imported ${result.imported} item${result.imported === 1 ? '' : 's'}${

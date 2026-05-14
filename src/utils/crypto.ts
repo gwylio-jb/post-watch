@@ -166,3 +166,74 @@ export const CRYPTO_PARAMS = Object.freeze({
   SALT_LENGTH_BYTES,
   IV_LENGTH_BYTES,
 });
+
+// ─── DEK / KEK primitives (Sprint 18) ──────────────────────────────────────
+//
+// Sprint 15 derived the encryption key directly from the passphrase. That
+// works until you want to rotate the passphrase or offer a recovery
+// option — both require re-encrypting every blob. Sprint 18 introduces a
+// per-installation Data Encryption Key (DEK) that's wrapped by one or
+// more Key Encryption Keys (KEKs, themselves passphrase-derived). The
+// DEK encrypts all user data. Rotating a KEK only re-wraps the DEK.
+
+/**
+ * Generate a fresh DEK as 32 raw bytes. We expose the raw bytes (not a
+ * CryptoKey) so the same DEK can be wrapped under multiple KEKs.
+ * Re-import via deriveDekKey() when we need to actually
+ * encrypt/decrypt with it.
+ */
+export function generateDek(): Uint8Array {
+  return randomBytes(KEY_LENGTH_BITS / 8);
+}
+
+/**
+ * Promote a raw DEK byte buffer into a non-extractable AES-GCM CryptoKey
+ * suitable for encrypt/decrypt operations. After this call, the raw
+ * bytes can be zeroed; the live key never leaves WebCrypto.
+ */
+export async function dekFromBytes(raw: Uint8Array): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    'raw',
+    raw.buffer as ArrayBuffer,
+    { name: 'AES-GCM', length: KEY_LENGTH_BITS },
+    /* extractable: */ false,
+    ['encrypt', 'decrypt'],
+  );
+}
+
+/**
+ * Wrap a DEK byte buffer under a KEK. Returns a base64 blob of
+ * iv || ciphertext (same shape as encryptString, just over raw bytes).
+ */
+export async function wrapDek(kek: CryptoKey, dek: Uint8Array): Promise<string> {
+  const iv = randomBytes(IV_LENGTH_BYTES);
+  const ct = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
+    kek,
+    dek.buffer as ArrayBuffer,
+  );
+  const ctBytes = new Uint8Array(ct);
+  const out = new Uint8Array(iv.length + ctBytes.length);
+  out.set(iv, 0);
+  out.set(ctBytes, iv.length);
+  return toBase64(out);
+}
+
+/**
+ * Unwrap a DEK from a base64 blob. Throws on wrong KEK (GCM auth tag
+ * rejects) or malformed input.
+ */
+export async function unwrapDek(kek: CryptoKey, blob: string): Promise<Uint8Array> {
+  const bytes = fromBase64(blob);
+  if (bytes.length < IV_LENGTH_BYTES + 1) {
+    throw new Error('Wrapped DEK too short — blob is malformed');
+  }
+  const iv = bytes.slice(0, IV_LENGTH_BYTES);
+  const ct = bytes.slice(IV_LENGTH_BYTES);
+  const ptBuf = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
+    kek,
+    ct.buffer as ArrayBuffer,
+  );
+  return new Uint8Array(ptBuf);
+}
