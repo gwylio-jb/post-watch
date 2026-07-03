@@ -505,7 +505,7 @@ export default function ReportHub() {
               <div style={{ padding: '0 18px 18px' }}>
                 {sortedReports.length === 0 ? (
                   <p style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>
-                    // No scans yet
+                    // No scans yet — run one from the WP Security page and it will appear here
                   </p>
                 ) : (
                   <select
@@ -535,7 +535,7 @@ export default function ReportHub() {
               <div style={{ padding: '0 18px 18px' }}>
                 {sortedSessions.length === 0 ? (
                   <p style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>
-                    // No gap analysis yet
+                    // No gap analysis yet — start one from the Compliance Hub and it will appear here
                   </p>
                 ) : (
                   <select

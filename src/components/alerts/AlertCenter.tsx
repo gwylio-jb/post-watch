@@ -271,6 +271,16 @@ export default function AlertCenter({ onNavigate }: AlertCenterProps) {
           <span style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>
             // {allAlerts.length === 0 ? 'Run a scan or gap analysis to generate alerts' : 'All alerts dismissed'}
           </span>
+          {allAlerts.length === 0 && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ marginTop: 6 }}
+              onClick={() => onNavigate('post_scan')}
+            >
+              Run a scan
+            </button>
+          )}
         </motion.div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

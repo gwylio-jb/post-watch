@@ -145,6 +145,13 @@ export default function GapAnalysis({ controls, clauses }: GapAnalysisProps) {
   if (!activeSession) {
     return (
       <div className="space-y-4">
+        {sessions.length === 0 && (
+          <p className="text-xs text-text-muted">
+            A gap analysis walks every ISO 27001 clause and Annex A control, recording
+            compliant / partial / non-compliant status per item. Sessions are snapshots —
+            re-run one after remediation to show progress. Create your first below.
+          </p>
+        )}
         <div className="bg-surface border border-border rounded-lg p-4 space-y-3">
           <h3 className="text-sm font-semibold text-text-primary">New Gap Analysis</h3>
           <input

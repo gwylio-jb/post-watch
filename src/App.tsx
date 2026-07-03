@@ -32,6 +32,7 @@ import LockGate from './components/auth/LockGate';
 import UndoHost from './components/shared/UndoHost';
 import ShortcutOverlay from './components/shared/ShortcutOverlay';
 import PromptHost from './components/shared/PromptHost';
+import ToastHost from './components/shared/ToastHost';
 import { openNewWindow } from './utils/multiWindow';
 
 export default function App() {
@@ -51,6 +52,7 @@ export default function App() {
         <UndoHost />
         <ShortcutOverlay />
         <PromptHost />
+        <ToastHost />
       </ScanQueueProvider>
     </LockGate>
   );

@@ -22,6 +22,7 @@ import type {
 } from '../../data/types';
 import { UNASSIGNED_CLIENT_ID } from '../../utils/clientMigration';
 import { pushUndo } from '../../utils/undoBus';
+import EmptyState from '../shared/EmptyState';
 
 // ─── Risk score colour ────────────────────────────────────────────────────────
 
@@ -381,6 +382,9 @@ function RiskForm({ initial, defaultClientId, clients, appetiteThreshold, onSave
   // in this form component so the panel closes cleanly with the modal.
   const [aiSettings] = useLocalStorage<AiSettings>('ai-settings', {});
   const [draftingTreatment, setDraftingTreatment] = useState(false);
+  // Sprint 22: show the required-name error only after the user has
+  // interacted with the field — a fresh form shouldn't open with red text.
+  const [nameTouched, setNameTouched] = useState(false);
 
   const score = form.likelihood * form.impact;
   const autoAccept = appetiteThreshold !== null && score <= appetiteThreshold;
@@ -477,7 +481,13 @@ function RiskForm({ initial, defaultClientId, clients, appetiteThreshold, onSave
               placeholder="e.g. Unpatched WordPress core"
               value={form.name}
               onChange={e => field('name', e.target.value)}
+              onBlur={() => setNameTouched(true)}
             />
+            {nameTouched && !form.name.trim() && (
+              <span role="alert" style={{ fontSize: 11, color: 'var(--ember)', display: 'block', marginTop: 4 }}>
+                Risk name is required.
+              </span>
+            )}
           </div>
 
           <div>
@@ -926,6 +936,9 @@ export default function RiskRegister() {
   const [editingRisk, setEditingRisk] = useState<RiskItem | null>(null);
   const [sortBy, setSortBy] = useState<'score' | 'name' | 'status'>('score');
   const [filterStatus, setFilterStatus] = useState<RiskStatus | 'All'>('All');
+  // Sprint 22: name search + capped rendering for large registers.
+  const [nameFilter, setNameFilter] = useState('');
+  const [rowLimit, setRowLimit] = useState(50);
 
   // Per-client appetite threshold. Stored as one JSON map under a single key
   // so we only mount one hook regardless of client count.
@@ -955,12 +968,22 @@ export default function RiskRegister() {
   }, [safeRisks, scope]);
 
   const sorted = useMemo(() => {
-    let r = scopedRisks.filter(risk => filterStatus === 'All' || risk.status === filterStatus);
+    const q = nameFilter.trim().toLowerCase();
+    let r = scopedRisks.filter(risk =>
+      (filterStatus === 'All' || risk.status === filterStatus) &&
+      (!q || risk.name.toLowerCase().includes(q) || risk.owner.toLowerCase().includes(q))
+    );
     if (sortBy === 'score') r = [...r].sort((a, b) => b.score - a.score);
     else if (sortBy === 'name') r = [...r].sort((a, b) => a.name.localeCompare(b.name));
     else r = [...r].sort((a, b) => a.status.localeCompare(b.status));
     return r;
-  }, [scopedRisks, sortBy, filterStatus]);
+  }, [scopedRisks, sortBy, filterStatus, nameFilter]);
+
+  // Reset the row cap whenever the visible set changes shape — a new
+  // filter should show the first page again, not a stale deep scroll.
+  useEffect(() => { setRowLimit(50); }, [scope, filterStatus, nameFilter]);
+
+  const visibleRows = useMemo(() => sorted.slice(0, rowLimit), [sorted, rowLimit]);
 
   const currentClient = useMemo(
     () => pickerClients.find(c => c.id === scope) ?? null,
@@ -1222,7 +1245,27 @@ export default function RiskRegister() {
                   </button>
                 ))}
               </div>
+              <input
+                type="search"
+                value={nameFilter}
+                onChange={e => setNameFilter(e.target.value)}
+                placeholder="Filter by name or owner…"
+                aria-label="Filter risks by name or owner"
+                style={{
+                  padding: '6px 10px', borderRadius: '8px',
+                  border: '1px solid var(--color-border)',
+                  background: 'var(--color-surface)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: '12px', outline: 'none',
+                  width: 200,
+                }}
+              />
               <div className="flex items-center gap-2 ml-auto">
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontFamily: '"JetBrains Mono", monospace' }}>
+                  {sorted.length === scopedRisks.length
+                    ? `${sorted.length} risk${sorted.length === 1 ? '' : 's'}`
+                    : `${sorted.length} of ${scopedRisks.length}`}
+                </span>
                 <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Sort:</span>
                 <select
                   value={sortBy}
@@ -1244,21 +1287,21 @@ export default function RiskRegister() {
 
             {/* Table */}
             {sorted.length === 0 ? (
-              <div
-                className="card-elevated flex flex-col items-center justify-center py-16 gap-3"
-                style={{ color: 'var(--color-text-muted)' }}
-              >
-                <span style={{ fontSize: '32px', opacity: 0.4 }}>⚠</span>
-                <span style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: '12px' }}>
-                  {scopedRisks.length === 0 ? '// No risks for this client yet' : '// No risks match this filter'}
-                </span>
-                {scopedRisks.length === 0 && (
-                  <button
-                    onClick={() => setShowForm(true)}
-                    style={{ color: 'var(--color-mint)', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}
-                  >
-                    + Add the first risk
-                  </button>
+              <div className="card-elevated">
+                {scopedRisks.length === 0 ? (
+                  <EmptyState
+                    icon={Target}
+                    title="No risks for this client yet"
+                    detail="Risks land here from manual entry, or raise them from WordPress scan findings and gap-analysis results."
+                    cta={{ label: 'Add the first risk', onClick: () => setShowForm(true) }}
+                  />
+                ) : (
+                  <EmptyState
+                    icon={Target}
+                    title="No risks match this filter"
+                    detail="Try clearing the status filter or switching sort order."
+                    cta={{ label: 'Show all statuses', onClick: () => setFilterStatus('All') }}
+                  />
                 )}
               </div>
             ) : (
@@ -1283,7 +1326,7 @@ export default function RiskRegister() {
                   </thead>
                   <tbody>
                     <AnimatePresence>
-                      {sorted.map((risk, i) => (
+                      {visibleRows.map((risk, i) => (
                         <motion.tr
                           key={risk.id}
                           initial={{ opacity: 0, y: -4 }}
@@ -1365,6 +1408,20 @@ export default function RiskRegister() {
                     </AnimatePresence>
                   </tbody>
                 </table>
+                {sorted.length > rowLimit && (
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0', borderTop: '1px solid var(--color-border)' }}>
+                    <button
+                      type="button"
+                      onClick={() => setRowLimit(l => l + 50)}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: 'var(--color-mint)', fontSize: '12px', fontWeight: 600,
+                      }}
+                    >
+                      Show 50 more ({sorted.length - rowLimit} remaining)
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </>

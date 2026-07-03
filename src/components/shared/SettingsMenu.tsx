@@ -1,15 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
-import { Settings, Download, Upload, CheckCircle2, AlertCircle, SlidersHorizontal } from 'lucide-react';
+import { Settings, Download, Upload, SlidersHorizontal } from 'lucide-react';
 import { exportBackup, importBackup, summariseStorage, detectBackupFormat } from '../../utils/backup';
 import { confirmDialog, promptDialog } from '../../utils/dialog';
+import { pushToast } from '../../utils/toastBus';
 import SettingsPanel from '../settings/SettingsPanel';
-
-type Toast = { kind: 'success' | 'error'; message: string } | null;
 
 export default function SettingsMenu() {
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [toast, setToast] = useState<Toast>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -46,13 +44,6 @@ export default function SettingsMenu() {
     };
   }, [open]);
 
-  // Auto-dismiss toasts
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3500);
-    return () => clearTimeout(t);
-  }, [toast]);
-
   const handleExport = async () => {
     try {
       // Offer an optional encryption passphrase. Empty ⇒ plain backup.
@@ -65,12 +56,9 @@ export default function SettingsMenu() {
       // null === cancel
       if (pass === null) { setOpen(false); return; }
       await exportBackup(pass ? { passphrase: pass } : {});
-      setToast({
-        kind: 'success',
-        message: pass ? 'Encrypted backup downloaded' : 'Backup downloaded',
-      });
+      pushToast('success', pass ? 'Encrypted backup downloaded' : 'Backup downloaded');
     } catch (e) {
-      setToast({ kind: 'error', message: (e as Error).message });
+      pushToast('error', (e as Error).message);
     }
     setOpen(false);
   };
@@ -107,17 +95,17 @@ export default function SettingsMenu() {
         passphrase = p;
       }
       const result = await importBackup(file, passphrase);
-      setToast({
-        kind: 'success',
-        message: `Imported ${result.imported} item${result.imported === 1 ? '' : 's'}${
+      pushToast(
+        'success',
+        `Imported ${result.imported} item${result.imported === 1 ? '' : 's'}${
           result.replaced > 0 ? ` (${result.replaced} replaced)` : ''
         }. Reloading…`,
-      });
+      );
       setOpen(false);
       // Give the toast a beat to flash, then reload so hooks re-read localStorage
       setTimeout(() => window.location.reload(), 900);
     } catch (e) {
-      setToast({ kind: 'error', message: (e as Error).message });
+      pushToast('error', (e as Error).message);
     }
   };
 
@@ -213,24 +201,6 @@ export default function SettingsMenu() {
       )}
 
       {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
-
-      {/* Toast */}
-      {toast && (
-        <div
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-card-hover max-w-sm"
-          style={{
-            background: 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
-          }}
-        >
-          {toast.kind === 'success' ? (
-            <CheckCircle2 className="w-4 h-4 text-status-green flex-shrink-0" />
-          ) : (
-            <AlertCircle className="w-4 h-4 text-status-red flex-shrink-0" />
-          )}
-          <span className="text-xs text-text-primary">{toast.message}</span>
-        </div>
-      )}
     </div>
   );
 }
