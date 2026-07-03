@@ -1,5 +1,5 @@
 import { useState, useMemo, lazy, Suspense } from 'react';
-import { ShieldCheck, Hammer, ClipboardList, Bookmark, FileCheck2, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, Hammer, ClipboardList, Bookmark, FileCheck2, AlertTriangle, ClipboardCheck, Users2 } from 'lucide-react';
 import type { ManagementClause, AnnexAControl, GapAnalysisSession } from '../../data/types';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import GapAnalysis from '../gap-analysis/GapAnalysis';
@@ -12,21 +12,26 @@ import SavedItems from '../SavedItems';
 const SoaMatrix = lazy(() => import('./SoaMatrix'));
 // Sprint 24: CAPA register — same lazy treatment.
 const CapaBoard = lazy(() => import('./CapaBoard'));
+// Sprint 25: internal audit programme + management review records.
+const InternalAudits = lazy(() => import('./InternalAudits'));
+const ManagementReviews = lazy(() => import('./ManagementReviews'));
 
 interface ComplyModuleProps {
   clauses: ManagementClause[];
   controls: AnnexAControl[];
 }
 
-type ComplyTab = 'gap-analysis' | 'soa' | 'capa' | 'projects' | 'checklists' | 'saved';
+type ComplyTab = 'gap-analysis' | 'soa' | 'capa' | 'internal-audits' | 'mgmt-reviews' | 'projects' | 'checklists' | 'saved';
 
 const tabs: { id: ComplyTab; label: string; Icon: React.ElementType }[] = [
-  { id: 'gap-analysis', label: 'Gap analysis',     Icon: ShieldCheck    },
-  { id: 'soa',          label: 'SoA',              Icon: FileCheck2     },
-  { id: 'capa',         label: 'CAPA',             Icon: AlertTriangle  },
-  { id: 'projects',     label: 'Implementations',  Icon: Hammer         },
-  { id: 'checklists',   label: 'Audits',           Icon: ClipboardList  },
-  { id: 'saved',        label: 'Saved items',      Icon: Bookmark       },
+  { id: 'gap-analysis',    label: 'Gap analysis',     Icon: ShieldCheck    },
+  { id: 'soa',             label: 'SoA',              Icon: FileCheck2     },
+  { id: 'capa',            label: 'CAPA',             Icon: AlertTriangle  },
+  { id: 'internal-audits', label: 'Internal audits',  Icon: ClipboardCheck },
+  { id: 'mgmt-reviews',    label: 'Mgmt reviews',     Icon: Users2         },
+  { id: 'projects',        label: 'Implementations',  Icon: Hammer         },
+  { id: 'checklists',      label: 'Audit prep',       Icon: ClipboardList  },
+  { id: 'saved',           label: 'Saved items',      Icon: Bookmark       },
 ];
 
 export default function ComplyModule({ clauses, controls }: ComplyModuleProps) {
@@ -147,6 +152,16 @@ export default function ComplyModule({ clauses, controls }: ComplyModuleProps) {
         {activeTab === 'capa' && (
           <Suspense fallback={<p style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>// Loading CAPA register…</p>}>
             <CapaBoard />
+          </Suspense>
+        )}
+        {activeTab === 'internal-audits' && (
+          <Suspense fallback={<p style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>// Loading audit programme…</p>}>
+            <InternalAudits />
+          </Suspense>
+        )}
+        {activeTab === 'mgmt-reviews' && (
+          <Suspense fallback={<p style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>// Loading reviews…</p>}>
+            <ManagementReviews />
           </Suspense>
         )}
         {activeTab === 'projects' && <ImplementationTracker />}

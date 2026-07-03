@@ -189,6 +189,66 @@ export interface Finding {
   closedAt?: string;
 }
 
+// ─── Internal audits & management review (V3.0, Sprint 25) ──────────────────
+
+export type InternalAuditStatus = 'planned' | 'in-progress' | 'complete';
+
+/** One checklist line inside an internal audit — a clause or control in scope. */
+export interface AuditChecklistItem {
+  /** ManagementClause.id or AnnexAControl.id. */
+  refId: string;
+  /** Has the auditor covered this item yet? */
+  covered: boolean;
+  notes: string;
+}
+
+/**
+ * A planned/executed internal audit (clause 9.2). The scope is a list of
+ * clause/control ids; execution walks them as a checklist, and findings
+ * raised along the way land on the CAPA register carrying this audit's
+ * id as sourceRef.
+ *
+ * Storage: `clause-control:internal-audits` → InternalAudit[].
+ */
+export interface InternalAudit {
+  id: string;
+  clientId: string;
+  title: string;
+  auditor: string;
+  plannedDate: string;
+  completedDate?: string;
+  status: InternalAuditStatus;
+  checklist: AuditChecklistItem[];
+  /** Finding ids raised during this audit (live on the CAPA register). */
+  findingIds: string[];
+}
+
+/**
+ * A management review record (clause 9.3). The agenda topics are fixed —
+ * they mirror the standard's required inputs — and each topic carries
+ * free-text minutes. `snapshot` freezes the live numbers at the moment
+ * the review is created, so the record stays honest after the data
+ * moves on.
+ *
+ * Storage: `clause-control:management-reviews` → ManagementReview[].
+ */
+export interface ManagementReview {
+  id: string;
+  clientId: string;
+  date: string;
+  attendees: string[];
+  /** Minutes per agenda topic, keyed by MR_AGENDA_TOPICS entries. */
+  minutes: Record<string, string>;
+  decisions: string[];
+  snapshot: {
+    openFindings: number;
+    overdueFindings: number;
+    compliancePct: number | null;
+    latestWpScore: number | null;
+    soaCompleteness: number | null;
+  };
+}
+
 /**
  * V2.8 (Sprint 16): a named frozen copy of a session's items, captured
  * by the user when they want a comparison point. Drives the snapshot-
