@@ -249,6 +249,75 @@ export interface ManagementReview {
   };
 }
 
+// ─── KPIs & lightweight registers (V3.0, Sprint 26) ─────────────────────────
+
+/**
+ * A user-defined ISMS metric (clause 9.1) plus its recorded values.
+ * Auto-computed KPIs (open CAPA count, compliance %, …) are derived
+ * live in utils/kpis.ts and never stored — only manual KPIs persist.
+ *
+ * Storage: `clause-control:kpis` → Kpi[].
+ */
+export interface Kpi {
+  id: string;
+  clientId: string;
+  name: string;
+  /** Display unit, e.g. "%", "days", "count". */
+  unit: string;
+  /** Optional target; trend chart draws the threshold line. */
+  target?: number;
+  cadence: 'monthly' | 'quarterly';
+  /** period: "2026-07" (monthly) or "2026-Q3" (quarterly). */
+  entries: { period: string; value: number }[];
+}
+
+/** Clause 7.3 training/awareness record. Storage: `clause-control:training`. */
+export interface TrainingRecord {
+  id: string;
+  clientId: string;
+  employee: string;
+  topic: string;
+  date: string;
+  passed: boolean;
+  notes?: string;
+}
+
+export type IncidentStatus = 'open' | 'resolved';
+
+/** Clause 8 / A.5.24-27 security event log. Storage: `clause-control:incidents`. */
+export interface IncidentRecord {
+  id: string;
+  clientId: string;
+  date: string;
+  title: string;
+  description: string;
+  severity: FindingSeverity;
+  status: IncidentStatus;
+  resolvedAt?: string;
+  rootCause?: string;
+  lessonsLearned?: string;
+  /** CAPA finding raised from this incident, if any. */
+  findingId?: string;
+}
+
+export type AssetType = 'Data' | 'System' | 'Infrastructure' | 'People' | 'Service' | 'Other';
+
+/** Asset inventory row with CIA criticality. Storage: `clause-control:assets`. */
+export interface AssetRecord {
+  id: string;
+  clientId: string;
+  name: string;
+  type: AssetType;
+  owner: string;
+  /** 1 (low) – 5 (critical) per property. */
+  confidentiality: number;
+  integrity: number;
+  availability: number;
+  /** Annex A control ids protecting this asset. */
+  controlIds: string[];
+  notes?: string;
+}
+
 /**
  * V2.8 (Sprint 16): a named frozen copy of a session's items, captured
  * by the user when they want a comparison point. Drives the snapshot-

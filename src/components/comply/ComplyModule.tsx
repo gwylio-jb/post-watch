@@ -1,5 +1,5 @@
 import { useState, useMemo, lazy, Suspense } from 'react';
-import { ShieldCheck, Hammer, ClipboardList, Bookmark, FileCheck2, AlertTriangle, ClipboardCheck, Users2 } from 'lucide-react';
+import { ShieldCheck, Hammer, ClipboardList, Bookmark, FileCheck2, AlertTriangle, ClipboardCheck, Users2, TrendingUp, Boxes } from 'lucide-react';
 import type { ManagementClause, AnnexAControl, GapAnalysisSession } from '../../data/types';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import GapAnalysis from '../gap-analysis/GapAnalysis';
@@ -15,13 +15,18 @@ const CapaBoard = lazy(() => import('./CapaBoard'));
 // Sprint 25: internal audit programme + management review records.
 const InternalAudits = lazy(() => import('./InternalAudits'));
 const ManagementReviews = lazy(() => import('./ManagementReviews'));
+// Sprint 26: KPI tracker + training/incident/asset registers.
+const KpiTracker = lazy(() => import('./KpiTracker'));
+const Registers = lazy(() => import('./Registers'));
 
 interface ComplyModuleProps {
   clauses: ManagementClause[];
   controls: AnnexAControl[];
 }
 
-type ComplyTab = 'gap-analysis' | 'soa' | 'capa' | 'internal-audits' | 'mgmt-reviews' | 'projects' | 'checklists' | 'saved';
+type ComplyTab =
+  | 'gap-analysis' | 'soa' | 'capa' | 'internal-audits' | 'mgmt-reviews'
+  | 'kpis' | 'registers' | 'projects' | 'checklists' | 'saved';
 
 const tabs: { id: ComplyTab; label: string; Icon: React.ElementType }[] = [
   { id: 'gap-analysis',    label: 'Gap analysis',     Icon: ShieldCheck    },
@@ -29,6 +34,8 @@ const tabs: { id: ComplyTab; label: string; Icon: React.ElementType }[] = [
   { id: 'capa',            label: 'CAPA',             Icon: AlertTriangle  },
   { id: 'internal-audits', label: 'Internal audits',  Icon: ClipboardCheck },
   { id: 'mgmt-reviews',    label: 'Mgmt reviews',     Icon: Users2         },
+  { id: 'kpis',            label: 'KPIs',             Icon: TrendingUp     },
+  { id: 'registers',       label: 'Registers',        Icon: Boxes          },
   { id: 'projects',        label: 'Implementations',  Icon: Hammer         },
   { id: 'checklists',      label: 'Audit prep',       Icon: ClipboardList  },
   { id: 'saved',           label: 'Saved items',      Icon: Bookmark       },
@@ -162,6 +169,16 @@ export default function ComplyModule({ clauses, controls }: ComplyModuleProps) {
         {activeTab === 'mgmt-reviews' && (
           <Suspense fallback={<p style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>// Loading reviews…</p>}>
             <ManagementReviews />
+          </Suspense>
+        )}
+        {activeTab === 'kpis' && (
+          <Suspense fallback={<p style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>// Loading KPIs…</p>}>
+            <KpiTracker />
+          </Suspense>
+        )}
+        {activeTab === 'registers' && (
+          <Suspense fallback={<p style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>// Loading registers…</p>}>
+            <Registers />
           </Suspense>
         )}
         {activeTab === 'projects' && <ImplementationTracker />}
