@@ -93,4 +93,53 @@ describe('migrations', () => {
       expect(localStorage.getItem('clause-control:wp-audit-reports')).toBe('[]');
     });
   });
+
+  // v3.0 ship: the whole chain, run against a simulated v2.x device.
+  // This is the upgrade path every existing install takes on first boot
+  // of 3.0.0 — user data must survive untouched and every new key must
+  // exist with the right shape.
+  describe('full chain on a simulated v2.x store', () => {
+    it('seeds every v3.0 key and preserves existing data', () => {
+      // A device that stopped migrating at v5 (Sprint 17 era), with data.
+      localStorage.setItem(STORAGE_VERSION_KEY, '5');
+      const clients = [{ id: 'c1', name: 'Acme', createdAt: '2025-01-01' }];
+      const risks = [{ id: 'r1', name: 'Legacy risk', score: 12 }];
+      localStorage.setItem('clause-control:clients', JSON.stringify(clients));
+      localStorage.setItem('clause-control:post-watch:risks', JSON.stringify(risks));
+      localStorage.setItem('clause-control:attachments', '[]');
+
+      const result = runMigrations();
+
+      expect(result.fromVersion).toBe(5);
+      expect(result.toVersion).toBe(TARGET_VERSION);
+      expect(result.applied).toEqual([6, 7, 8, 9]);
+
+      // New keys exist with the right container shapes.
+      expect(JSON.parse(localStorage.getItem('clause-control:soa')!)).toEqual({});
+      for (const key of ['findings', 'internal-audits', 'management-reviews', 'kpis', 'training', 'incidents', 'assets']) {
+        expect(JSON.parse(localStorage.getItem(`clause-control:${key}`)!)).toEqual([]);
+      }
+
+      // Pre-existing data preserved. The legacy V2.1 back-fill may add an
+      // "Unassigned" client and stamp clientIds — that's expected; what
+      // matters is the original records are still there, intact in substance.
+      const migratedClients = JSON.parse(localStorage.getItem('clause-control:clients')!) as { id: string; name: string }[];
+      expect(migratedClients.some(c => c.id === 'c1' && c.name === 'Acme')).toBe(true);
+      const migratedRisks = JSON.parse(localStorage.getItem('clause-control:post-watch:risks')!) as { id: string; name: string; score: number }[];
+      expect(migratedRisks).toHaveLength(1);
+      expect(migratedRisks[0]).toMatchObject({ id: 'r1', name: 'Legacy risk', score: 12 });
+
+      // Idempotent: a second boot applies nothing.
+      expect(runMigrations().applied).toEqual([]);
+    });
+
+    it('repairs corrupt v3.0 keys without touching version-tracked data', () => {
+      localStorage.setItem(STORAGE_VERSION_KEY, '5');
+      localStorage.setItem('clause-control:soa', '"not an object"');
+      localStorage.setItem('clause-control:findings', '{oops');
+      runMigrations();
+      expect(JSON.parse(localStorage.getItem('clause-control:soa')!)).toEqual({});
+      expect(JSON.parse(localStorage.getItem('clause-control:findings')!)).toEqual([]);
+    });
+  });
 });
