@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Settings, Download, Upload, CheckCircle2, AlertCircle, SlidersHorizontal } from 'lucide-react';
 import { exportBackup, importBackup, summariseStorage, detectBackupFormat } from '../../utils/backup';
+import { confirmDialog, promptDialog } from '../../utils/dialog';
 import SettingsPanel from '../settings/SettingsPanel';
 
 type Toast = { kind: 'success' | 'error'; message: string } | null;
@@ -54,12 +55,12 @@ export default function SettingsMenu() {
 
   const handleExport = async () => {
     try {
-      // Offer an optional encryption passphrase. Empty/cancel ⇒ plain backup.
-      // Browser prompt() is fine here — this is a low-frequency settings
-      // action and avoids dragging in a modal for the simple case.
-      const pass = window.prompt(
+      // Offer an optional encryption passphrase. Empty ⇒ plain backup.
+      // promptDialog, not window.prompt — sync prompt() is blocked in the
+      // Tauri WKWebView and silently returns null in production.
+      const pass = await promptDialog(
         'Optional: enter a passphrase to encrypt the backup file.\n\nLeave blank for an unencrypted (human-readable) backup.',
-        ''
+        { title: 'Export backup', mask: true, okLabel: 'Export', placeholder: 'Passphrase (optional)' },
       );
       // null === cancel
       if (pass === null) { setOpen(false); return; }
@@ -83,8 +84,11 @@ export default function SettingsMenu() {
     e.target.value = ''; // reset so same file can be chosen again
     if (!file) return;
 
-    const ok = confirm(
-      'Importing will overwrite any existing projects, cheatsheets and settings with matching keys. Continue?'
+    // Tauri-aware async confirm — window.confirm returns false synchronously
+    // inside the Tauri WKWebView, which would silently skip every import.
+    const ok = await confirmDialog(
+      'Importing will overwrite any existing projects, cheatsheets and settings with matching keys. Continue?',
+      { title: 'Import backup', okLabel: 'Import', kind: 'warning' },
     );
     if (!ok) return;
 
@@ -95,7 +99,10 @@ export default function SettingsMenu() {
       const fmt = await detectBackupFormat(file);
       let passphrase: string | undefined;
       if (fmt === 'encrypted') {
-        const p = window.prompt('This backup is encrypted. Enter the passphrase to decrypt:');
+        const p = await promptDialog(
+          'This backup is encrypted. Enter the passphrase to decrypt:',
+          { title: 'Import backup', mask: true, okLabel: 'Decrypt' },
+        );
         if (p === null) return; // user cancelled
         passphrase = p;
       }

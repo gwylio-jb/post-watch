@@ -361,7 +361,10 @@ export async function unlockWithRecovery(recoveryCode: string): Promise<boolean>
     return false;
   }
   const dekKey = await dekFromBytes(dekBytes);
-  return finishUnlock(dekKey);
+  // dekBytes must reach finishUnlock: setPassphraseFromRecovery (the
+  // forced rotation that immediately follows a recovery unlock) rewraps
+  // liveDekBytes, and rotateRecoveryCode/setupRecoveryCode need it too.
+  return finishUnlock(dekKey, dekBytes);
 }
 
 /**

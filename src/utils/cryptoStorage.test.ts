@@ -274,6 +274,28 @@ describe('unlockWithRecovery', () => {
     cs.lock();
     expect(await cs.unlockWithRecovery('AAAA-BBBB-CCCC-DDDD-EEEE-FFFF-AAAA-BBBB')).toBe(false);
   });
+
+  // Regression (Sprint 21): unlockWithRecovery must populate liveDekBytes,
+  // otherwise the forced passphrase rotation that immediately follows a
+  // recovery unlock fails and the user is stuck on the lock screen.
+  it('recovery unlock supports the forced passphrase rotation', async () => {
+    const { recoveryCode } = await cs.enableEncryption('forgotten-pass');
+    cs.lock();
+    expect(await cs.unlockWithRecovery(recoveryCode)).toBe(true);
+    // The PostRecoveryRotate flow calls this next:
+    expect(await cs.setPassphraseFromRecovery('brand-new-pass')).toBe(true);
+    cs.lock();
+    expect(await cs.unlock('forgotten-pass')).toBe(false);  // old pass dead
+    expect(await cs.unlock('brand-new-pass')).toBe(true);   // new pass works
+  });
+
+  it('recovery unlock supports rotating the recovery code afterwards', async () => {
+    const { recoveryCode } = await cs.enableEncryption('forgotten-pass');
+    cs.lock();
+    expect(await cs.unlockWithRecovery(recoveryCode)).toBe(true);
+    const fresh = await cs.rotateRecoveryCode();
+    expect(fresh).not.toBeNull();
+  });
 });
 
 describe('changePassphrase', () => {

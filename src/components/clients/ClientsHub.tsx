@@ -13,7 +13,7 @@
  * uses redesign tokens. Existing CRUD logic is unchanged.
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Search, Building2, Pencil, Trash2, Image as ImageIcon, X, Upload } from 'lucide-react';
 import CsvImportDialog from '../shared/CsvImportDialog';
 import { parseCsv } from '../../utils/csv/parseCsv';
@@ -21,6 +21,7 @@ import { parseClientsFromCsv, type ClientImportRow } from '../../utils/csv/parse
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import type { Client } from '../../data/types';
+import { confirmDialog } from '../../utils/dialog';
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -368,6 +369,8 @@ export default function ClientsHub() {
 
   // useMemo for stable identity — the consuming useMemos depend on `list`.
   const list = useMemo<Client[]>(() => Array.isArray(clients) ? clients : [], [clients]);
+  /** True while a delete-confirm dialog is open — blocks double-clicks. */
+  const deletingRef = useRef(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -390,11 +393,28 @@ export default function ClientsHub() {
     setFormOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    // Guard against double-clicks stacking a second dialog while the
+    // first is open.
+    if (deletingRef.current) return;
     const client = list.find(c => c.id === id);
     if (!client) return;
-    if (!confirm(`Delete client "${client.name}"? Existing records tagged to this client will become unassigned.`)) return;
-    setClients(list.filter(c => c.id !== id));
+    deletingRef.current = true;
+    try {
+      // Use Tauri-aware async confirm — `window.confirm` is blocked inside
+      // the Tauri WKWebView and returns false synchronously, which made
+      // every delete short-circuit before it ran.
+      const ok = await confirmDialog(
+        `Delete client "${client.name}"? Existing records tagged to this client will become unassigned.`,
+        { title: 'Delete client', okLabel: 'Delete', cancelLabel: 'Cancel', kind: 'warning' },
+      );
+      if (!ok) return;
+      // Functional update — `list` was captured before the await and may
+      // be stale by the time the user confirms.
+      setClients(prev => (Array.isArray(prev) ? prev : []).filter(c => c.id !== id));
+    } finally {
+      deletingRef.current = false;
+    }
   };
 
   const stats = useMemo(() => {
@@ -501,7 +521,7 @@ export default function ClientsHub() {
               key={client.id}
               client={client}
               onEdit={() => { setEditing(client); setFormOpen(true); }}
-              onDelete={() => handleDelete(client.id)}
+              onDelete={() => void handleDelete(client.id)}
             />
           ))}
         </div>

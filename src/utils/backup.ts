@@ -175,11 +175,26 @@ export async function importBackup(file: File, passphrase?: string): Promise<Imp
 
   let imported = 0;
   let replaced = 0;
+  let failed = 0;
   for (const [shortKey, value] of Object.entries(payload.data)) {
     const fullKey = PREFIX + shortKey;
-    if (localStorage.getItem(fullKey) !== null) replaced++;
-    localStorage.setItem(fullKey, JSON.stringify(value));
-    imported++;
+    const existed = localStorage.getItem(fullKey) !== null;
+    // Count only writes that actually landed — setItem throws on quota
+    // exhaustion, and reporting those as "imported" would tell the user
+    // the restore succeeded when part of it didn't.
+    try {
+      localStorage.setItem(fullKey, JSON.stringify(value));
+      imported++;
+      if (existed) replaced++;
+    } catch (e) {
+      failed++;
+      console.warn('[backup] failed to write key during import', fullKey, e);
+    }
+  }
+  if (failed > 0) {
+    throw new Error(
+      `Import incomplete: ${imported} item${imported === 1 ? '' : 's'} restored, ${failed} failed (storage quota?). Your data may be partially updated.`
+    );
   }
 
   return { imported, replaced };

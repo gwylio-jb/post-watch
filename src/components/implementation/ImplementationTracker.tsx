@@ -12,6 +12,7 @@ import { UNASSIGNED_CLIENT_ID } from '../../utils/clientMigration';
 import ProjectDashboard from './ProjectDashboard';
 import ProjectDetail from './ProjectDetail';
 import CustomDeliverablesEditor from './CustomDeliverablesEditor';
+import { alertDialog } from '../../utils/dialog';
 
 export default function ImplementationTracker() {
   const [projects, setProjects] = useLocalStorage<Project[]>('projects', []);
@@ -114,7 +115,11 @@ function NewProjectModal({ onCancel, onCreate }: { onCancel: () => void; onCreat
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 500_000) {
-      alert('Logo too large. Please use an image under 500KB.');
+      // alertDialog, not alert() — sync alert is a silent no-op in the
+      // Tauri WKWebView, so the user would get no feedback at all.
+      void alertDialog('Logo too large. Please use an image under 500KB.', {
+        title: 'Logo upload', kind: 'warning',
+      });
       return;
     }
     const reader = new FileReader();

@@ -1,6 +1,8 @@
+import { useRef } from 'react';
 import { Plus, FolderKanban, Trash2, Calendar, FileText, Users } from 'lucide-react';
 import type { Project } from '../../data/projects';
 import { computeMetrics } from '../../data/projects';
+import { confirmDialog } from '../../utils/dialog';
 
 interface ProjectDashboardProps {
   projects: Project[];
@@ -139,6 +141,8 @@ function MetricCard({ label, value, icon, gradient }: { label: string; value: st
 
 function ProjectCard({ project, onOpen, onDelete }: { project: Project; onOpen: () => void; onDelete: () => void }) {
   const m = computeMetrics(project);
+  /** True while the delete-confirm dialog is open — blocks double-clicks. */
+  const deletingRef = useRef(false);
   const initials = project.client.name
     .split(/\s+/)
     .map(w => w[0])
@@ -174,7 +178,21 @@ function ProjectCard({ project, onOpen, onDelete }: { project: Project; onOpen: 
           </div>
         </div>
         <button
-          onClick={(e) => { e.stopPropagation(); if (confirm(`Delete project "${project.client.name}"?`)) onDelete(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (deletingRef.current) return;
+            deletingRef.current = true;
+            // Tauri-aware async confirm — sync window.confirm is blocked
+            // inside the Tauri WKWebView and returns false immediately.
+            void confirmDialog(
+              `Delete project "${project.client.name}"?`,
+              { title: 'Delete project', okLabel: 'Delete', kind: 'warning' },
+            ).then(ok => {
+              if (ok) onDelete();
+            }).finally(() => {
+              deletingRef.current = false;
+            });
+          }}
           className="opacity-0 group-hover:opacity-100 p-1.5 text-text-muted hover:text-status-red transition-all rounded"
           aria-label="Delete project"
         >

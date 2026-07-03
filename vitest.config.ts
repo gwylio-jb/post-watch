@@ -16,6 +16,12 @@ export default defineConfig({
     // happy-dom ships its own Storage shim that ignores Node's, and is
     // ~3x faster on a cold start anyway.
     environment: 'happy-dom',
+    // threads over the default forks pool — on Node 25.8+ forked workers
+    // intermittently exceed vitest's spawn timeout ("Failed to start forks
+    // worker"), killing whole files before a single test runs. Worker
+    // threads boot reliably and this suite has no process-level isolation
+    // needs (no native addons, no process.chdir).
+    pool: 'threads',
     globals: true,                  // describe/it/expect without imports
     setupFiles: ['./test/setup.ts'],
     css: false,                     // skip CSS module parsing in tests; speeds up suite ~3x

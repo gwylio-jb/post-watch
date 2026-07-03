@@ -78,6 +78,8 @@ export default function GlobalSearch({ isOpen, onClose, query, onQueryChange, re
   // modal is open and resets on close.
   const [nlBusy, setNlBusy] = useState(false);
   const [nlOutcome, setNlOutcome] = useState<PlanOutcome | null>(null);
+  /** In-flight NL request; aborted when the modal closes. */
+  const nlAbortRef = useRef<AbortController | null>(null);
 
   const data = useMemo(() => ({
     risks: Array.isArray(risks) ? risks : [],
@@ -91,7 +93,10 @@ export default function GlobalSearch({ isOpen, onClose, query, onQueryChange, re
       setTimeout(() => inputRef.current?.focus(), 50);
     } else {
       // Reset NL state when the modal closes so a stale plan doesn't
-      // flash back into view on next open.
+      // flash back into view on next open — and abort any in-flight
+      // Ollama request so it can't setState on the closed modal.
+      nlAbortRef.current?.abort();
+      nlAbortRef.current = null;
       setNlOutcome(null);
       setNlBusy(false);
     }
@@ -114,16 +119,22 @@ export default function GlobalSearch({ isOpen, onClose, query, onQueryChange, re
     if (!query.trim() || nlBusy) return;
     setNlBusy(true);
     setNlOutcome(null);
+    const controller = new AbortController();
+    nlAbortRef.current = controller;
     try {
       const outcome = await planAndExecute({
         question: query.trim(),
         data,
         settings: aiSettings ?? {},
+        signal: controller.signal,
       });
+      // Aborted = the modal closed; its state was already reset.
+      if (controller.signal.aborted) return;
       setNlOutcome(outcome);
       if (outcome.kind === 'ok') pushHistory(query.trim());
     } finally {
-      setNlBusy(false);
+      if (nlAbortRef.current === controller) nlAbortRef.current = null;
+      if (!controller.signal.aborted) setNlBusy(false);
     }
   };
 

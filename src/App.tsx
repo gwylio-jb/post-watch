@@ -31,6 +31,7 @@ import { ScanQueueProvider } from './hooks/scanQueueContext';
 import LockGate from './components/auth/LockGate';
 import UndoHost from './components/shared/UndoHost';
 import ShortcutOverlay from './components/shared/ShortcutOverlay';
+import PromptHost from './components/shared/PromptHost';
 import { openNewWindow } from './utils/multiWindow';
 
 export default function App() {
@@ -49,6 +50,7 @@ export default function App() {
         <AppContent />
         <UndoHost />
         <ShortcutOverlay />
+        <PromptHost />
       </ScanQueueProvider>
     </LockGate>
   );
