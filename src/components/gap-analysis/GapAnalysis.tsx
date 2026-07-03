@@ -3,7 +3,9 @@ import { Trash2, ChevronRight, Plus, Sparkles, Upload, Camera, GitBranch } from 
 import CsvImportDialog from '../shared/CsvImportDialog';
 import { parseCsv } from '../../utils/csv/parseCsv';
 import { parseGapItemsFromCsv, mergeGapItems, type GapItemImportRow } from '../../utils/csv/parseGapItems';
-import type { AnnexAControl, ManagementClause, GapAnalysisSession, GapAnalysisItem, GapSessionSnapshot, ComplianceStatus, Priority, Client } from '../../data/types';
+import type { AnnexAControl, ManagementClause, GapAnalysisSession, GapAnalysisItem, GapSessionSnapshot, ComplianceStatus, Priority, Client, Finding } from '../../data/types';
+import { newFinding } from '../../utils/findings';
+import { pushToast } from '../../utils/toastBus';
 import type { AiSettings } from '../../data/auditTypes';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { exportAsMarkdown, exportAsPrintHTML } from '../../utils/export';
@@ -33,6 +35,8 @@ export default function GapAnalysis({ controls, clauses }: GapAnalysisProps) {
   const [sessions, setSessions] = useLocalStorage<GapAnalysisSession[]>('gap-sessions', []);
   const [clients] = useLocalStorage<Client[]>('clients', []);
   const [ai] = useLocalStorage<AiSettings>('ai-settings', {});
+  // Sprint 24: CAPA register — target for the per-item "Raise finding" hook.
+  const [findings, setFindings] = useLocalStorage<Finding[]>('findings', []);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
   // Sprint 13 Pack 1 — separate state from `aiOpen` so the two drafters can't
@@ -108,6 +112,31 @@ export default function GapAnalysis({ controls, clauses }: GapAnalysisProps) {
   const deleteSession = (id: string) => {
     setSessions(prev => prev.filter(s => s.id !== id));
     if (activeSessionId === id) setActiveSessionId(null);
+  };
+
+  // Sprint 24: push a nonconforming gap item onto the CAPA register.
+  // Severity maps from the item's priority; the finding carries the
+  // clause/control ref so the CAPA board can show traceability chips.
+  const raiseFinding = (item: GapAnalysisItem, sourceTitle: string) => {
+    const clientId = activeSession?.clientId ?? UNASSIGNED_CLIENT_ID;
+    const already = (Array.isArray(findings) ? findings : []).some(
+      f => f.source === 'gap' && f.sourceRef === item.itemId && f.clientId === clientId && f.status !== 'closed'
+    );
+    if (already) {
+      pushToast('info', 'An open finding already exists for this item');
+      return;
+    }
+    const f = newFinding({
+      clientId,
+      source: 'gap',
+      sourceRef: item.itemId,
+      title: `${item.itemId} ${sourceTitle}: ${item.status}`,
+      description: item.notes,
+      severity: item.priority === 'High' ? 'high' : item.priority === 'Medium' ? 'medium' : 'low',
+      refIds: [item.itemId],
+    });
+    setFindings(prev => [...(Array.isArray(prev) ? prev : []), f]);
+    pushToast('success', 'Finding raised on the CAPA register');
   };
 
   const filteredItems = activeSession?.items.filter(item => {
@@ -522,6 +551,18 @@ export default function GapAnalysis({ controls, clauses }: GapAnalysisProps) {
                   onChange={e => updateItem(item.itemId, { notes: e.target.value })}
                   className="bg-surface-alt border border-border rounded px-1.5 py-1 text-[10px] text-text-secondary outline-none flex-1 min-w-0"
                 />
+                {/* Sprint 24: nonconforming items feed the CAPA register.
+                    One click carries the item's context across. */}
+                {(item.status === 'Non-Compliant' || item.status === 'Partially Compliant') && (
+                  <button
+                    type="button"
+                    title="Raise a finding on the CAPA register"
+                    onClick={() => raiseFinding(item, source.title)}
+                    className="text-[10px] px-1.5 py-1 rounded border border-border text-text-secondary hover:text-accent flex-shrink-0"
+                  >
+                    Raise finding
+                  </button>
+                )}
                 <StatusIndicator status={item.status} showLabel={false} />
               </div>
               {/* Sprint 17: per-item evidence vault. Compact mode renders

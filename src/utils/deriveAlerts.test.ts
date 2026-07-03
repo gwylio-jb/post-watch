@@ -189,6 +189,31 @@ describe('deriveAlerts', () => {
     expect(alerts[0].timestamp).toBe('2026-04-05T00:01:00Z');
     expect(alerts[1].timestamp).toBe('2026-04-01T00:01:00Z');
   });
+
+  // Sprint 24: overdue corrective actions surface as alerts.
+  it('raises an alert for an overdue CAPA action, none for on-track or closed', () => {
+    const overdueFinding = {
+      id: 'f1', clientId: 'c1', source: 'manual' as const,
+      title: 'Overdue thing', description: '', severity: 'high' as const,
+      refIds: [], status: 'action-planned' as const,
+      action: { owner: 'Josh', dueDate: '2020-01-01', description: '' },
+      raisedAt: '2020-01-01T00:00:00Z',
+    };
+    const onTrack = {
+      ...overdueFinding, id: 'f2', title: 'Future thing',
+      action: { owner: 'Josh', dueDate: '2099-01-01', description: '' },
+    };
+    const closed = {
+      ...overdueFinding, id: 'f3', title: 'Closed thing',
+      status: 'closed' as const, closedAt: '2026-01-01T00:00:00Z',
+    };
+    const alerts = deriveAlerts([], [], [overdueFinding, onTrack, closed]);
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0].severity).toBe('High');
+    expect(alerts[0].title).toContain('Overdue corrective action');
+    // Id embeds the due date so extending the deadline re-arms dismissal.
+    expect(alerts[0].id).toContain('2020-01-01');
+  });
 });
 
 // ─── filterDismissed ────────────────────────────────────────────────────────

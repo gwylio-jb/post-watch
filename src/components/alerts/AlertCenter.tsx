@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle, ScanSearch, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import type { AuditReport } from '../../data/auditTypes';
-import type { GapAnalysisSession } from '../../data/types';
+import type { GapAnalysisSession, Finding } from '../../data/types';
 import {
   deriveAlerts,
   filterDismissed,
@@ -131,6 +131,7 @@ interface AlertCenterProps {
 export default function AlertCenter({ onNavigate }: AlertCenterProps) {
   const [savedReports] = useLocalStorage<AuditReport[]>('wp-audit-reports', []);
   const [gapSessions] = useLocalStorage<GapAnalysisSession[]>('gap-sessions', []);
+  const [findings] = useLocalStorage<Finding[]>('findings', []);
   const [dismissedIds, setDismissedIds] = useLocalStorage<string[]>('post-watch:dismissed-alerts', []);
   const [filterSev, setFilterSev] = useState<AlertSeverity | 'All'>('All');
 
@@ -138,8 +139,9 @@ export default function AlertCenter({ onNavigate }: AlertCenterProps) {
     deriveAlerts(
       Array.isArray(savedReports) ? savedReports : [],
       Array.isArray(gapSessions) ? gapSessions : [],
+      Array.isArray(findings) ? findings : [],
     ),
-    [savedReports, gapSessions]
+    [savedReports, gapSessions, findings]
   );
 
   const safeDismissed: string[] = Array.isArray(dismissedIds) ? dismissedIds : [];

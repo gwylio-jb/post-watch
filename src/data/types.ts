@@ -92,8 +92,8 @@ export interface GapAnalysisSession {
  */
 export interface AttachmentMeta {
   id: string;
-  ownerKind: 'gap' | 'scan' | 'soa';
-  /** Foreign key: GapAnalysisItem.itemId, AuditReport.id, or SoaEntry key (`clientId:controlId`). */
+  ownerKind: 'gap' | 'scan' | 'soa' | 'finding';
+  /** Foreign key: GapAnalysisItem.itemId, AuditReport.id, SoaEntry key (`clientId:controlId`), or Finding.id. */
   ownerId: string;
   name: string;
   /** Bytes on disk. */
@@ -135,6 +135,59 @@ export interface SoaEntry {
 
 /** The full per-client SoA map persisted under `clause-control:soa`. */
 export type SoaStore = Record<string, SoaEntry[]>;
+
+// ─── Findings & CAPA (V3.0, Sprint 24) ───────────────────────────────────────
+
+export type FindingSource = 'gap' | 'wp-scan' | 'internal-audit' | 'incident' | 'manual';
+export type FindingSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+/**
+ * Nonconformity / finding lifecycle (clause 10.2). Linear on purpose —
+ * auditors want to see raised → planned → done → verified → closed, and
+ * a status enum beats a workflow engine at this scale.
+ */
+export type FindingStatus = 'open' | 'action-planned' | 'implemented' | 'verified' | 'closed';
+
+export interface CorrectiveAction {
+  owner: string;
+  /** ISO date the action is due. Drives overdue alerts. */
+  dueDate: string;
+  description: string;
+}
+
+export interface EffectivenessCheck {
+  date: string;
+  passed: boolean;
+  notes: string;
+}
+
+/**
+ * A recorded nonconformity or improvement finding, and the corrective
+ * action that answers it. This is the CAPA register auditors ask for
+ * in every certification audit: "you found problems — show me you fixed
+ * them and verified the fix worked."
+ *
+ * Storage: `clause-control:findings` → Finding[].
+ * Evidence attaches via the vault with ownerKind 'finding'.
+ */
+export interface Finding {
+  id: string;
+  clientId: string;
+  source: FindingSource;
+  /** Foreign key into the source record (gap itemId, scan check id…). */
+  sourceRef?: string;
+  title: string;
+  description: string;
+  rootCause?: string;
+  severity: FindingSeverity;
+  /** Clause / Annex A control ids this finding touches. */
+  refIds: string[];
+  status: FindingStatus;
+  action?: CorrectiveAction;
+  effectivenessCheck?: EffectivenessCheck;
+  raisedAt: string;
+  closedAt?: string;
+}
 
 /**
  * V2.8 (Sprint 16): a named frozen copy of a session's items, captured

@@ -23,7 +23,7 @@ const ReportHub     = lazy(() => import('./components/reports/ReportHub'));
 const UpdatePrompt  = lazy(() => import('./components/common/UpdatePrompt'));
 import type { SearchResult } from './hooks/useSearch';
 import type { AuditReport } from './data/auditTypes';
-import type { GapAnalysisSession } from './data/types';
+import type { GapAnalysisSession, Finding } from './data/types';
 import { deriveAlerts, filterDismissed } from './utils/deriveAlerts';
 import { runMigrations } from './utils/migrations';
 import { cleanupAfterCrash } from './utils/cryptoStorage';
@@ -73,13 +73,15 @@ function AppContent() {
   // dismissals so clearing the list clears the badge.
   const [savedReports] = useLocalStorage<AuditReport[]>('wp-audit-reports', []);
   const [gapSessions] = useLocalStorage<GapAnalysisSession[]>('gap-sessions', []);
+  const [findings] = useLocalStorage<Finding[]>('findings', []);
   const [dismissedAlertIds] = useLocalStorage<string[]>('post-watch:dismissed-alerts', []);
   const alertCount = useMemo(() => {
     const reports = Array.isArray(savedReports) ? savedReports : [];
     const sessions = Array.isArray(gapSessions) ? gapSessions : [];
+    const capa = Array.isArray(findings) ? findings : [];
     const dismissed = Array.isArray(dismissedAlertIds) ? dismissedAlertIds : [];
-    return filterDismissed(deriveAlerts(reports, sessions), dismissed).length;
-  }, [savedReports, gapSessions, dismissedAlertIds]);
+    return filterDismissed(deriveAlerts(reports, sessions, capa), dismissed).length;
+  }, [savedReports, gapSessions, findings, dismissedAlertIds]);
 
   // Versioned storage migrations — runs every pending step from the device's
   // current version up to the target. Each step is idempotent and the runner

@@ -1,6 +1,6 @@
 import { useState, lazy, Suspense } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronDown, ChevronRight, RefreshCw, ArrowLeft, Loader2, Sparkles, Wrench, FileText, Calendar, Mail } from 'lucide-react';
+import { ChevronDown, ChevronRight, RefreshCw, ArrowLeft, Loader2, Sparkles, Wrench, FileText, Calendar, Mail, ClipboardList } from 'lucide-react';
 import AttachmentList from '../shared/AttachmentList';
 import { useSchedulerContext } from '../../hooks/scanQueueContextRef';
 import ScheduleDialog from './ScheduleDialog';
@@ -8,8 +8,10 @@ import type { AuditCheck, AuditReport, CheckStatus, SeverityLevel, AiSettings } 
 import { CATEGORY_ORDER } from '../../utils/audit/scanEngine';
 import { getExplainer } from '../../data/checkExplainers';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
-import type { Client } from '../../data/types';
+import type { Client, Finding } from '../../data/types';
 import { UNASSIGNED_CLIENT_ID } from '../../utils/clientMigration';
+import { newFinding } from '../../utils/findings';
+import { pushToast } from '../../utils/toastBus';
 import { explainFindingPrompt, remediationSnippetPrompt, actionPlanPrompt, clientCommsEmailPrompt } from '../../utils/ai/prompts';
 import Gauge from '../charts/Gauge';
 
@@ -77,7 +79,31 @@ function FindingRow({ check, client, ai }: { check: AuditCheck; client?: Client;
   const [expanded, setExpanded] = useState(false);
   // Discriminated union of which AI panel (if any) is open for this row.
   const [aiOpen, setAiOpen] = useState<null | 'explain' | 'fix'>(null);
+  // Sprint 24: CAPA intake target.
+  const [findings, setFindings] = useLocalStorage<Finding[]>('findings', []);
   const result = check.result!;
+
+  const raiseCapaFinding = () => {
+    const clientId = client?.id ?? UNASSIGNED_CLIENT_ID;
+    const already = (Array.isArray(findings) ? findings : []).some(
+      f => f.source === 'wp-scan' && f.sourceRef === check.id && f.clientId === clientId && f.status !== 'closed'
+    );
+    if (already) {
+      pushToast('info', 'An open finding already exists for this check');
+      return;
+    }
+    const sev = check.worstCaseSeverity;
+    const f = newFinding({
+      clientId,
+      source: 'wp-scan',
+      sourceRef: check.id,
+      title: `WP scan: ${check.name}`,
+      description: [result.detail, result.recommendation].filter(Boolean).join('\n\n'),
+      severity: sev === 'Critical' ? 'critical' : sev === 'High' ? 'high' : sev === 'Medium' ? 'medium' : 'low',
+    });
+    setFindings(prev => [...(Array.isArray(prev) ? prev : []), f]);
+    pushToast('success', 'Finding raised on the CAPA register');
+  };
   const isActionable = result.status === 'fail' || result.status === 'warning';
   const color = statusColor[result.status];
   const explainer = getExplainer(check.id);
@@ -200,6 +226,22 @@ function FindingRow({ check, client, ai }: { check: AuditCheck; client?: Client;
                   Generate fix
                 </button>
               )}
+              {/* Sprint 24: push this finding onto the CAPA register so
+                  its remediation is tracked to a verified close. */}
+              <button
+                type="button"
+                onClick={raiseCapaFinding}
+                title="Track this finding's remediation on the CAPA register"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors"
+                style={{
+                  background: 'rgba(255,74,28,0.08)',
+                  color: 'var(--color-status-red, #DC2626)',
+                  border: '1px solid rgba(255,74,28,0.30)',
+                }}
+              >
+                <ClipboardList className="w-3 h-3" />
+                Raise finding
+              </button>
             </div>
             {/* Sprint 17: per-finding evidence vault. The `ownerId` is
                 the check id (stable across rescans of the same domain),

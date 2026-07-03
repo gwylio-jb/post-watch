@@ -1,5 +1,6 @@
 import type { AuditReport } from '../data/auditTypes';
-import type { GapAnalysisSession } from '../data/types';
+import type { GapAnalysisSession, Finding } from '../data/types';
+import { isOverdue } from './findings';
 
 // ─── Shared alert model ───────────────────────────────────────────────────────
 // Single source of truth for everything alert-shaped: the sidebar badge count,
@@ -29,6 +30,8 @@ const severityOrder: Record<AlertSeverity, number> = {
 export function deriveAlerts(
   savedReports: AuditReport[],
   gapSessions: GapAnalysisSession[],
+  // Sprint 24: optional so pre-v3 call sites and tests keep compiling.
+  findings: Finding[] = [],
 ): Alert[] {
   const alerts: Alert[] = [];
 
@@ -98,6 +101,21 @@ export function deriveAlerts(
         timestamp: session.updatedAt,
       });
     }
+  }
+
+  // 3. CAPA (Sprint 24): corrective actions past their due date. The alert
+  //    id embeds the due date so pushing the deadline out re-arms a
+  //    previously-dismissed alert.
+  for (const f of findings) {
+    if (!isOverdue(f)) continue;
+    alerts.push({
+      id: `capa-overdue-${f.id}-${f.action!.dueDate}`,
+      severity: f.severity === 'critical' ? 'Critical' : f.severity === 'high' ? 'High' : 'Medium',
+      source: 'post_comply',
+      title: `Overdue corrective action: ${f.title}`,
+      detail: `Due ${f.action!.dueDate}, owner ${f.action!.owner || 'unassigned'}. Update the CAPA register or extend the due date.`,
+      timestamp: f.action!.dueDate,
+    });
   }
 
   return alerts.sort((a, b) => {
