@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Post_Watch — The Field Guide</title>
+<style>
+  :root {
+    --bg-0: #070b12;
+    --bg-1: #0c1220;
+    --bg-2: #111a2c;
+    --ink-1: #e8edf5;
+    --ink-2: #a8b4c8;
+    --ink-3: #66748c;
+    --line: rgba(140,160,190,0.14);
+    --mint: #00d9a3;
+    --violet: #7b6bed;
+    --ember: #ff4a1c;
+    --amber: #f59e0b;
+    --mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", "Inter", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg-0); color: var(--ink-2);
+    font-family: var(--sans); font-size: 16px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Aurora backdrop */
+  .aurora {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(600px 400px at 15% -5%, rgba(0,217,163,0.10), transparent 70%),
+      radial-gradient(700px 500px at 90% 10%, rgba(123,107,237,0.12), transparent 70%),
+      radial-gradient(500px 600px at 50% 110%, rgba(0,217,163,0.05), transparent 70%);
+  }
+  .layout { position: relative; z-index: 1; display: flex; max-width: 1200px; margin: 0 auto; }
+
+  /* ── Sidebar nav ── */
+  nav.toc {
+    position: sticky; top: 0; align-self: flex-start;
+    width: 240px; flex-shrink: 0; height: 100vh; overflow-y: auto;
+    padding: 36px 20px 36px 24px;
+    border-right: 1px solid var(--line);
+    font-size: 12.5px;
+  }
+  nav.toc .brand {
+    font-family: var(--mono); font-size: 13px; color: var(--mint);
+    letter-spacing: 0.04em; margin-bottom: 20px; display: block;
+  }
+  nav.toc .grp {
+    text-transform: uppercase; letter-spacing: 0.1em; font-size: 10px;
+    color: var(--ink-3); font-family: var(--mono); margin: 18px 0 6px;
+  }
+  nav.toc a {
+    display: block; color: var(--ink-2); text-decoration: none;
+    padding: 3px 0 3px 10px; border-left: 2px solid transparent;
+  }
+  nav.toc a:hover { color: var(--mint); border-left-color: var(--mint); }
+
+  /* ── Main column ── */
+  main { flex: 1; min-width: 0; padding: 0 48px 96px; }
+
+  header.cover { padding: 96px 0 64px; border-bottom: 1px solid var(--line); }
+  .kicker {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--mint);
+  }
+  h1.title {
+    margin: 12px 0 0; font-size: 56px; line-height: 1.05; font-weight: 800;
+    color: var(--ink-1); letter-spacing: -0.02em;
+  }
+  h1.title .u { color: var(--mint); }
+  .subtitle { margin-top: 18px; font-size: 19px; color: var(--ink-2); max-width: 640px; }
+  .cover-meta {
+    margin-top: 28px; display: flex; gap: 28px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 12px; color: var(--ink-3);
+  }
+
+  section { padding-top: 56px; }
+  h2 {
+    font-size: 30px; color: var(--ink-1); font-weight: 800; letter-spacing: -0.01em;
+    margin: 0 0 6px; padding-top: 12px;
+  }
+  h2::before {
+    content: attr(data-num);
+    display: block; font-family: var(--mono); font-size: 12px;
+    color: var(--violet); letter-spacing: 0.1em; margin-bottom: 8px;
+  }
+  h3 { font-size: 19px; color: var(--ink-1); margin: 36px 0 8px; font-weight: 700; }
+  h4 { font-size: 15px; color: var(--ink-1); margin: 24px 0 6px; font-weight: 700; }
+  p { margin: 12px 0; max-width: 720px; }
+  li { margin: 6px 0; max-width: 680px; }
+  strong { color: var(--ink-1); font-weight: 650; }
+  em { color: var(--ink-1); font-style: italic; }
+  code {
+    font-family: var(--mono); font-size: 0.85em;
+    background: var(--bg-2); border: 1px solid var(--line);
+    padding: 1px 6px; border-radius: 5px; color: var(--mint);
+  }
+  kbd {
+    font-family: var(--mono); font-size: 0.8em;
+    background: var(--bg-2); border: 1px solid var(--line); border-bottom-width: 2px;
+    padding: 2px 7px; border-radius: 6px; color: var(--ink-1);
+  }
+  .lead { font-size: 17.5px; color: var(--ink-1); }
+
+  .callout {
+    border: 1px solid var(--line); border-left: 3px solid var(--mint);
+    background: var(--bg-1); border-radius: 12px;
+    padding: 14px 18px; margin: 20px 0; max-width: 720px; font-size: 14.5px;
+  }
+  .callout.v { border-left-color: var(--violet); }
+  .callout.w { border-left-color: var(--amber); }
+  .callout .t {
+    font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--mint); display: block; margin-bottom: 4px;
+  }
+  .callout.v .t { color: var(--violet); }
+  .callout.w .t { color: var(--amber); }
+
+  table {
+    border-collapse: collapse; margin: 18px 0; width: 100%; max-width: 760px;
+    font-size: 14px;
+  }
+  th {
+    text-align: left; font-family: var(--mono); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3);
+    padding: 8px 12px; border-bottom: 1px solid var(--line);
+  }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:first-child { color: var(--ink-1); white-space: nowrap; }
+
+  .pill {
+    display: inline-block; font-family: var(--mono); font-size: 11px;
+    padding: 1px 9px; border-radius: 999px; margin-right: 4px;
+    border: 1px solid rgba(0,217,163,0.35); color: var(--mint);
+  }
+  .pill.v { border-color: rgba(123,107,237,0.4); color: var(--violet); }
+  .pill.e { border-color: rgba(255,74,28,0.4); color: var(--ember); }
+
+  .flow {
+    font-family: var(--mono); font-size: 13px; color: var(--ink-2);
+    background: var(--bg-1); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 22px; margin: 20px 0; max-width: 720px;
+    overflow-x: auto; white-space: pre; line-height: 1.8;
+  }
+  .flow b { color: var(--mint); font-weight: 600; }
+
+  hr.sep { border: none; border-top: 1px solid var(--line); margin: 64px 0 0; }
+
+  footer.end {
+    margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--line);
+    font-family: var(--mono); font-size: 12px; color: var(--ink-3);
+  }
+
+  @media (max-width: 900px) {
+    nav.toc { display: none; }
+    main { padding: 0 24px 64px; }
+    h1.title { font-size: 40px; }
+  }
+
+  /* ── Print / PDF ── */
+  @media print {
+    :root { --bg-0: #fff; --bg-1: #f5f7fa; --bg-2: #eef1f6; --ink-1: #0c1220; --ink-2: #333d4d; --ink-3: #66748c; --line: #d7dde8; }
+    body { font-size: 11pt; }
+    .aurora, nav.toc { display: none; }
+    main { padding: 0; }
+    h1.title { font-size: 34pt; color: #0c1220; }
+    h2 { page-break-before: always; padding-top: 0; }
+    header.cover { padding: 40pt 0; }
+    a { color: inherit; text-decoration: none; }
+    .callout, .flow, code, kbd { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="aurora"></div>
+<div class="layout">
+
+<nav class="toc" aria-label="Contents">
+  <span class="brand">post_watch // field guide</span>
+  <span class="grp">Orientation</span>
+  <a href="#what">What this is</a>
+  <a href="#model">The mental model</a>
+  <a href="#engagement">An engagement, start to finish</a>
+  <span class="grp">Security work</span>
+  <a href="#scanner">WordPress scanner</a>
+  <a href="#risk">Risk register</a>
+  <a href="#intel">Threat intel &amp; alerts</a>
+  <span class="grp">ISMS work</span>
+  <a href="#reference">The 27001 reference</a>
+  <a href="#gap">Gap analysis</a>
+  <a href="#soa">Statement of Applicability</a>
+  <a href="#capa">Findings &amp; CAPA</a>
+  <a href="#audits">Internal audits</a>
+  <a href="#mr">Management reviews</a>
+  <a href="#kpi">KPIs</a>
+  <a href="#registers">The registers</a>
+  <span class="grp">Deliverables</span>
+  <a href="#reports">Reports &amp; PDFs</a>
+  <a href="#evidence">Evidence vault</a>
+  <span class="grp">The plumbing</span>
+  <a href="#privacy">Privacy &amp; encryption</a>
+  <a href="#backups">Backups &amp; schedules</a>
+  <a href="#power">Power features</a>
+  <a href="#appendix">Appendix</a>
+</nav>
+
+<main>
+
+<header class="cover">
+  <span class="kicker">The Field Guide · v3.0</span>
+  <h1 class="title">Post_Watch<span class="u">_</span></h1>
+  <p class="subtitle">
+    ISO 27001 engagement management and WordPress security auditing in one
+    desktop app — where every byte of client data stays on your machine.
+  </p>
+  <div class="cover-meta">
+    <span>ISO/IEC 27001:2022</span>
+    <span>93 Annex A controls</span>
+    <span>57 scan checks</span>
+    <span>0 bytes in the cloud</span>
+  </div>
+</header>
+
+<!-- ══════════════════════ ORIENTATION ══════════════════════ -->
+
+<section id="what">
+  <h2 data-num="§ 01">What this is</h2>
+  <p class="lead">
+    Post_Watch exists because a typical ISO 27001 engagement is one part
+    knowing the standard, one part assessing against it, and three parts
+    producing evidence that an auditor will accept — and until now that third
+    part lived in a sprawl of spreadsheets, Word documents and good intentions.
+  </p>
+  <p>
+    The app collapses that sprawl into a single desktop tool. It knows the
+    2022 revision cold (all ten management clauses, all 93 Annex A controls,
+    with audit questions, typical evidence and common gaps for each). It
+    assesses — gap analyses, risk scoring, an outside-in WordPress scanner. And
+    as of v3.0 it produces the evidence layer certification bodies actually
+    scrutinize: a live Statement of Applicability, a CAPA register with an
+    enforced lifecycle, internal audit programmes, management review minutes,
+    KPI trends, and the training / incident / asset registers.
+  </p>
+  <p>
+    Every deliverable exports as a branded PDF or CSV. Every record can carry
+    file evidence. And the whole thing runs from local storage on your laptop,
+    optionally encrypted — because a compliance tool that ships client gap
+    analyses to someone else's cloud is a contradiction you'd then have to
+    explain in your own SoA.
+  </p>
+  <div class="callout">
+    <span class="t">Who it's for</span>
+    Independent consultants and small practices running ISO 27001 engagements —
+    especially ones with WordPress-heavy client portfolios. If you've ever
+    maintained four spreadsheets and a Word template per client, this is aimed
+    squarely at you.
+  </div>
+</section>
+
+<section id="model">
+  <h2 data-num="§ 02">The mental model</h2>
+  <p>Three ideas explain how everything in the app fits together.</p>
+  <h3>1. Everything hangs off a client</h3>
+  <p>
+    A <strong>client</strong> is a billable engagement. Risks, scans, gap
+    sessions, SoA rows, findings, audits, reviews, KPIs and register entries
+    all carry a client id. Pick a client in any module and you're looking at
+    one engagement's world; exports brand themselves with that client's logo
+    and colours. (Records that predate a client, or that you never assigned,
+    live under a built-in <em>Unassigned</em> client so nothing is ever
+    orphaned.)
+  </p>
+  <h3>2. Assessment flows into evidence</h3>
+  <p>
+    The modules aren't islands — they feed each other in the same direction a
+    real engagement moves:
+  </p>
+  <div class="flow">gap analysis ──► <b>SoA</b> (pre-fill untouched rows)
+gap item ────► <b>CAPA finding</b> (one click, carries context)
+scan check ──► <b>CAPA finding</b> (severity mapped for you)
+audit line ──► <b>CAPA finding</b> (traceable to the audit)
+incident ────► <b>CAPA finding</b> (linked both ways)
+everything ──► <b>management review snapshot</b> (frozen at creation)</div>
+  <p>
+    The point: when something is wrong, recording it <em>where you found
+    it</em> is enough. It lands on the CAPA register with its context intact,
+    and the CAPA register is what the auditor reads.
+  </p>
+  <h3>3. Local first, always</h3>
+  <p>
+    All data lives in local storage on your machine. The optional AI features
+    run against a local Ollama model. Scans go direct from your laptop to the
+    target site. There is no account, no sync, no telemetry — which also means
+    <strong>backups are your job</strong> (the app makes them one click, and
+    can nag you on a schedule).
+  </p>
+</section>
+
+<section id="engagement">
+  <h2 data-num="§ 03">An engagement, start to finish</h2>
+  <p class="lead">
+    Here's a 60-day pre-certification engagement for a fictional 40-person
+    e-commerce firm, as it actually runs through the app.
+  </p>
+  <h3>Week 1 — set up and look around</h3>
+  <p>
+    Create the client in the <strong>Clients hub</strong> — name, logo (it'll
+    appear on every PDF), brand colours if you want their palette on reports.
+    Then run a <strong>WordPress scan</strong> against their storefront. Ten
+    minutes in, you have a 0–100 security score, a categorised finding list,
+    and — usually — the first three items for the risk register.
+  </p>
+  <h3>Weeks 2–3 — assess</h3>
+  <p>
+    Open a <strong>gap analysis session</strong> scoped to the full standard.
+    Walk the clauses and controls with the client, marking each Compliant /
+    Partially Compliant / Non-Compliant, with notes, priority and an owner.
+    Take a <strong>snapshot</strong> when you finish — that's your baseline,
+    and the diff against it later is your progress story. Populate the
+    <strong>risk register</strong> as themes emerge: 5×5 likelihood × impact,
+    CIA properties, treatment, linked controls. Set the client's risk appetite
+    and the app pre-fills "Accept" for anything under the line.
+  </p>
+  <h3>Week 4 — the SoA</h3>
+  <p>
+    Open the <strong>SoA tab</strong> and hit <em>Pre-fill from gap session</em>.
+    Every control the assessment touched gets its implementation status seeded;
+    anything marked Not Applicable flips to excluded. Then do the part that's
+    genuinely yours: write the justifications. The coverage meter tells you how
+    far you've got — auditors read every one of these, so the meter is really a
+    "how ready am I" gauge.
+  </p>
+  <h3>Weeks 5–7 — fix things, prove it</h3>
+  <p>
+    Raise <strong>findings</strong> from the non-compliant gap items and the
+    scan failures. Each gets a corrective action with an owner and a due date;
+    the app won't let a finding advance without one, and it won't let you mark
+    one <em>verified</em> without a passed effectiveness check. Overdue actions
+    surface in the <strong>Alert Center</strong> without you looking for them.
+    Attach evidence — screenshots, configs, policies — straight onto the
+    finding.
+  </p>
+  <h3>Week 8 — the management system, on the record</h3>
+  <p>
+    Plan an <strong>internal audit</strong> over the management clauses and
+    execute its checklist. Record a <strong>management review</strong>: the app
+    freezes that day's numbers (open findings, compliance %, WP score, SoA
+    coverage) into the record automatically, you minute the discussion against
+    the clause 9.3.2 agenda, and export the minutes PDF. Define two or three
+    <strong>KPIs</strong> and backfill a couple of months so there's a trend to
+    show. Fill the <strong>registers</strong> — import the training log from
+    the HR system's CSV export, list the crown-jewel assets with C-I-A ratings,
+    log the phishing email from March.
+  </p>
+  <h3>Audit day</h3>
+  <p>
+    Export the SoA PDF, the CAPA register, the latest gap analysis report and
+    the MR minutes. When the auditor asks "show me how you know your ISMS
+    works", open the KPI tab and turn the laptop around.
+  </p>
+  <div class="callout v">
+    <span class="t">Try it without a client</span>
+    On a fresh install the app offers to <strong>load sample data</strong>:
+    one complete demo engagement (Meridian Books) with a populated SoA, CAPA
+    board mid-lifecycle, a half-executed audit, MR minutes and KPI history.
+    Delete it whenever — it's clearly labelled.
+  </div>
+</section>
+
+<hr class="sep">
+
+<!-- ══════════════════════ SECURITY WORK ══════════════════════ -->
+
+<section id="scanner">
+  <h2 data-num="§ 04">The WordPress scanner</h2>
+  <p class="lead">
+    Fifty-seven checks, run from the outside — the same vantage point an
+    attacker has. Most WP security plugins audit from inside the site;
+    Post_Watch never asks for wp-admin credentials because the interesting
+    question is what's visible <em>without</em> them.
+  </p>
+  <table>
+    <tr><th>Category</th><th>What it probes</th></tr>
+    <tr><td>Dark Web &amp; Reputation</td><td>Breach exposure and reputation signals for the domain</td></tr>
+    <tr><td>TLS / SSL</td><td>Certificate validity, expiry runway, protocol hygiene</td></tr>
+    <tr><td>Security Headers</td><td>CSP, HSTS, frame options, referrer policy and friends</td></tr>
+    <tr><td>WordPress Core</td><td>Version disclosure, update posture, readme leakage</td></tr>
+    <tr><td>File Exposure</td><td>Backups, logs, config files and directory listings left in the open</td></tr>
+    <tr><td>DNS &amp; Email Security</td><td>SPF, DKIM, DMARC posture and DNS misconfigurations</td></tr>
+    <tr><td>Configuration</td><td>XML-RPC, REST API user enumeration, debug leftovers</td></tr>
+    <tr><td>Authentication</td><td>Login exposure, enumeration vectors, default paths</td></tr>
+  </table>
+  <p>
+    Every finding carries a severity, the evidence that triggered it, and a
+    remediation recommendation. Most also have a plain-English
+    <strong>explainer</strong> — an attacker's-eye narrative, why it matters,
+    what to say to the client — because you'll paste that into an email at
+    some point, and it's better if it doesn't read like a tool wrote it.
+  </p>
+  <h4>What a finding can do</h4>
+  <ul>
+    <li><strong>Explain to my client</strong> — a local AI drafts a client-facing explanation (needs Ollama; see §17).</li>
+    <li><strong>Generate fix</strong> — a config-snippet remediation for fixable categories.</li>
+    <li><strong>Raise finding</strong> — pushes it onto the CAPA register, severity mapped, so remediation is tracked to a verified close.</li>
+    <li><strong>Attach evidence</strong> — files stick to the check id, so a re-scan that resurfaces the same issue resurfaces your evidence too.</li>
+  </ul>
+  <p>
+    Scans batch (queue several domains, walk away), schedule (§16), and every
+    completed scan is preserved with a <strong>tamper-evident hash chain</strong> —
+    each report carries a SHA-256 over its contents plus the previous report's
+    hash, so a doctored history is detectable. Settings has the verify button.
+  </p>
+</section>
+
+<section id="risk">
+  <h2 data-num="§ 05">The risk register</h2>
+  <p>
+    A proper 5×5: likelihood × impact gives a 1–25 score, bucketed into
+    <span class="pill e">critical 20+</span> <span class="pill v">high 12–19</span>
+    <span class="pill">medium 6–11</span> <span class="pill">low &lt;6</span>.
+    Each risk records its category, CIA properties affected, treatment
+    (Mitigate / Accept / Transfer / Avoid), a treatment plan, an owner, a due
+    date, and the clauses or controls it maps to.
+  </p>
+  <ul>
+    <li><strong>Risk appetite per client</strong> — set a score threshold and new risks under it default to Accept. You can always override; the app nudges, it doesn't insist.</li>
+    <li><strong>The matrix view</strong> — the classic heat grid, per client, for the workshop projector.</li>
+    <li><strong>Search, filters, pagination</strong> — a 300-row register stays usable. Deleting a risk offers an 8-second undo, because meetings have elbows.</li>
+    <li><strong>AI treatment drafts</strong> — the local model can draft the treatment paragraph from the risk's own fields. You edit; it types.</li>
+  </ul>
+</section>
+
+<section id="intel">
+  <h2 data-num="§ 06">Threat intel &amp; alerts</h2>
+  <p>
+    <strong>Threat intel</strong> tracks vulnerability and end-of-life data for
+    the plugins your scans discover, so "that slider plugin is abandoned"
+    arrives before the incident does.
+  </p>
+  <p>
+    The <strong>Alert Center</strong> is one derived list — never a second copy
+    of your data. It surfaces Critical/High scan findings from the latest scan
+    per domain, TLS certificates inside 30 days of expiry, high-priority
+    non-compliant gap items, and (v3.0) <strong>overdue corrective
+    actions</strong>. Dismissing an alert remembers the dismissal; extending a
+    CAPA due date re-arms its alert, so nothing snoozes forever. The sidebar
+    badge and the list always agree because they're computed by the same
+    function.
+  </p>
+</section>
+
+<hr class="sep">
+
+<!-- ══════════════════════ ISMS WORK ══════════════════════ -->
+
+<section id="reference">
+  <h2 data-num="§ 07">The 27001 reference</h2>
+  <p class="lead">
+    The standard, made navigable. Ten management clauses and 93 Annex A
+    controls (2022 revision, four themes), each with implementation guidance,
+    audit questions, typical evidence, common gaps and practitioner tips.
+  </p>
+  <ul>
+    <li><strong>Cross-reference matrix</strong> — each control mapped to SOC 2, NIST CSF and Cyber Essentials, for the client who asks "but we already did SOC 2".</li>
+    <li><strong>Control metadata</strong> — type, security properties, cybersecurity concepts, operational capabilities — the 2022 attribute taxonomy, filterable.</li>
+    <li><strong>Audit prep cheatsheets</strong> — assemble a bespoke checklist of clauses/controls for a specific audit day and print it.</li>
+    <li><strong>Global search</strong> — <kbd>⌘K</kbd> reaches every clause, control, audit question and evidence item (§17 for the clever version).</li>
+  </ul>
+</section>
+
+<section id="gap">
+  <h2 data-num="§ 08">Gap analysis</h2>
+  <p>
+    A <strong>session</strong> is one assessment pass — full standard, clauses
+    only, or controls only — for one client. Each item takes a status
+    (Compliant / Partially Compliant / Non-Compliant / Not Assessed / Not
+    Applicable), notes, a priority and a responsible owner. The dashboard rolls
+    it up into a compliance percentage that follows the client around the app.
+  </p>
+  <ul>
+    <li><strong>Snapshots</strong> — freeze the session's state under a label ("pre-remediation", "post-audit") and diff any two later. The diff is the progress narrative your report writes itself from.</li>
+    <li><strong>CSV import</strong> — bring an existing assessment spreadsheet in rather than re-keying it.</li>
+    <li><strong>Raise finding</strong> — non- and partially-compliant items push onto the CAPA register with their clause reference and priority carried over.</li>
+    <li><strong>Evidence per item</strong> — attach the policy PDF to the clause it satisfies.</li>
+    <li><strong>AI narrative</strong> — the local model drafts the report narrative from your statuses and notes.</li>
+  </ul>
+</section>
+
+<section id="soa">
+  <h2 data-num="§ 09">Statement of Applicability</h2>
+  <p class="lead">
+    The single most-scrutinized document in any certification audit, kept as
+    live data instead of a Word file that was true once.
+  </p>
+  <p>
+    One row per Annex A control per client: <strong>applicable?</strong> ·
+    <strong>justification</strong> · <strong>implementation status</strong>
+    (Not Started → In Progress → Implemented → Verified) · evidence
+    attachments. Grouped by the four themes, with per-theme bulk actions and
+    row filters — including <em>Needs justification</em>, which is the filter
+    you'll live in.
+  </p>
+  <ul>
+    <li><strong>Pre-fill from gap session</strong> — seeds implementation status from your latest assessment, and flips Not-Applicable items to excluded. It only touches rows you haven't edited; your curation is never overwritten.</li>
+    <li><strong>The coverage meter</strong> — percentage of rows with a written justification. Inclusions need justifying too, not just exclusions; the meter counts both.</li>
+    <li><strong>Exports</strong> — CSV for the working spreadsheet crowd, branded PDF for the audit pack: cover with summary stats, then every control by theme with applicability, status and justification.</li>
+  </ul>
+  <div class="callout">
+    <span class="t">Why SoA ≠ gap status</span>
+    Gap analysis measures <em>how well</em> a control is met at a point in
+    time. The SoA records <em>whether it applies at all</em> and the standing
+    justification. They cross-reference — but neither owns the other, which is
+    why they're separate tabs with a one-way pre-fill.
+  </div>
+</section>
+
+<section id="capa">
+  <h2 data-num="§ 10">Findings &amp; CAPA</h2>
+  <p class="lead">
+    Clause 10.2, operationalised: you found problems, you fixed them, you
+    proved the fix worked. The register enforces that story's ordering.
+  </p>
+  <div class="flow"><b>open</b> ──► <b>action-planned</b> ──► <b>implemented</b> ──► <b>verified</b> ──► <b>closed</b>
+        needs owner +        needs a PASSED
+        due date             effectiveness check</div>
+  <p>
+    No skipping. A finding can't be <em>action-planned</em> without an owner
+    and a due date; it can't be <em>verified</em> until you've recorded an
+    effectiveness check — and if the check failed, the app tells you to revise
+    the action and re-test rather than letting you wave it through. That
+    ordering is precisely what an auditor traces, so the tool simply refuses to
+    let the trace be wrong.
+  </p>
+  <p>
+    Findings arrive from five directions — gap items, scan checks, internal
+    audit checklist lines, incidents, or raised manually — each carrying its
+    source context and clause/control references. Duplicate-guarding means
+    clicking "Raise finding" twice on the same item tells you a finding already
+    exists instead of minting a twin. The board groups by lifecycle stage,
+    flags overdue actions in red (and in the Alert Center), filters by client,
+    and exports as CSV or a branded PDF register.
+  </p>
+</section>
+
+<section id="audits">
+  <h2 data-num="§ 11">Internal audits</h2>
+  <p>
+    Clause 9.2 asks for a programme that covers the whole ISMS over time —
+    so the header of this tab is a <strong>rolling 12-month coverage
+    meter</strong>: of the 103 clauses and controls in the standard, how many
+    appeared (and were actually checked off) in audits completed in the last
+    year.
+  </p>
+  <p>
+    Planning an audit picks a scope preset — full standard, management clauses
+    4–10, or a single Annex A theme — and generates the execution checklist.
+    Working the checklist auto-moves the audit from <em>planned</em> to
+    <em>in-progress</em>; each line takes a covered-tick and auditor notes, and
+    has its own <strong>Raise finding</strong> button that files straight onto
+    the CAPA register, tagged to the audit. Completing an audit with unchecked
+    lines warns you they won't count toward coverage — honesty by default.
+  </p>
+</section>
+
+<section id="mr">
+  <h2 data-num="§ 12">Management reviews</h2>
+  <p>
+    Auditors routinely ask for two or more years of management review minutes
+    covering the standard's required inputs. This tab makes that record almost
+    embarrassingly easy to produce well.
+  </p>
+  <ul>
+    <li><strong>The frozen snapshot</strong> — creating a review captures that day's open findings, overdue actions, compliance %, latest WP score and SoA coverage into the record. Six months later, the minutes still reflect what the numbers <em>were</em>, not what they've become. The record stays honest without effort.</li>
+    <li><strong>The fixed agenda</strong> — nine topics mirroring clause 9.3.2's required inputs (previous actions, nonconformities, monitoring results, audit results, interested-party feedback…). You minute each; the structure itself proves the review covered what it must.</li>
+    <li><strong>Decisions</strong> — a simple numbered list of what was agreed, which is what people actually look up later.</li>
+    <li><strong>Minutes PDF</strong> — one click, audit-pack ready.</li>
+  </ul>
+</section>
+
+<section id="kpi">
+  <h2 data-num="§ 13">KPIs</h2>
+  <p>
+    Clause 9.1 wants the ISMS <em>measured</em>, and it's the requirement most
+    SME ISMSs fail quietly. Two kinds of metric here:
+  </p>
+  <ul>
+    <li><strong>Live metrics</strong> — compliance %, mean WP score, open and overdue CAPA counts. Computed from data the app already holds, never stored, so they can't drift or go stale. Zero data entry.</li>
+    <li><strong>Your KPIs</strong> — define a name, unit, target and cadence (monthly/quarterly), then recording a period's value is one number and one click. Each KPI gets a trend sparkline with target-aware scaling and an on/below-target pill.</li>
+  </ul>
+  <p>
+    The management review snapshot pulls from the same numbers, so "monitoring
+    and measurement results" on the MR agenda has something real behind it.
+    CSV export for the graphs-in-slides people.
+  </p>
+</section>
+
+<section id="registers">
+  <h2 data-num="§ 14">The registers</h2>
+  <p class="lead">
+    The three spreadsheets every consultant kept outside the tool, now inside
+    it — deliberately spreadsheet-plain, because these are meant to be fast.
+  </p>
+  <h4>Training log <span class="pill">clause 7.3</span></h4>
+  <p>
+    Employee, topic, date, pass/fail. Add inline, or <strong>import the HR
+    system's CSV export</strong> — the parser tolerates the usual header
+    chaos (Employee/Name/Staff, Course/Topic, Result/Passed…) and tells you
+    what it skipped. A pass-rate percentage sits in the header for the auditor
+    who spot-checks.
+  </p>
+  <h4>Incident log <span class="pill">A.5.24–27</span></h4>
+  <p>
+    What happened, when, how bad. Resolving an incident asks for the root
+    cause and lessons learned — the two fields that distinguish an incident
+    <em>log</em> from an incident <em>list</em>. One click raises a CAPA
+    finding from the incident, linked both ways so it can't be raised twice.
+  </p>
+  <h4>Asset register <span class="pill">clause 5 / 8</span></h4>
+  <p>
+    Name, type, owner, and C-I-A ratings (1–5) editable right in the table.
+    Criticality is max(C, I, A) and the register sorts most-critical first,
+    because "what are you protecting?" is usually the auditor's opening
+    question. Controls can be linked per asset.
+  </p>
+  <p>All three export to CSV. All deletes carry undo.</p>
+</section>
+
+<hr class="sep">
+
+<!-- ══════════════════════ DELIVERABLES ══════════════════════ -->
+
+<section id="reports">
+  <h2 data-num="§ 15">Reports &amp; PDFs</h2>
+  <p>
+    Everything the client or auditor receives is a designed PDF — cover page,
+    the client's logo, their brand colours if you've set them (falling back to
+    the house mint/violet), consistent typography throughout. Generated
+    locally; nothing renders on a server.
+  </p>
+  <table>
+    <tr><th>Report</th><th>What's in it</th></tr>
+    <tr><td>WP Security</td><td>Scan score, findings by category with evidence and remediation</td></tr>
+    <tr><td>Compliance Status</td><td>Gap session roll-up, priority backlog, item detail with owners</td></tr>
+    <tr><td>Executive Summary</td><td>The one-pager for the person who reads one page</td></tr>
+    <tr><td>Portfolio Summary</td><td>Cross-client roll-up — every engagement's posture on one sheet</td></tr>
+    <tr><td>Statement of Applicability</td><td>All 93 controls by theme: applicability, status, justification</td></tr>
+    <tr><td>CAPA Register</td><td>Every finding with lifecycle stage, action, effectiveness outcome</td></tr>
+    <tr><td>MR Minutes</td><td>Attendees, frozen snapshot, agenda minutes, decisions</td></tr>
+  </table>
+  <p>
+    The <strong>Reports hub</strong> assembles these per client, and scheduled
+    report exports (§16) can queue the monthly pack automatically. CSV exports
+    exist alongside every register-shaped dataset — SoA, CAPA, KPIs, all three
+    registers — for whatever Excel ritual survives in your practice.
+  </p>
+</section>
+
+<section id="evidence">
+  <h2 data-num="§ 16">The evidence vault</h2>
+  <p>
+    Any gap item, scan finding, SoA row or CAPA finding can carry file
+    attachments — policies, screenshots, configs, certificates. Files are
+    copied into an app-managed vault directory on disk (not into the
+    database), keyed to their owner, so a re-scan that resurfaces a finding
+    resurfaces its evidence. Attach once, keep forever, and the audit pack
+    stops being an email-archaeology exercise.
+  </p>
+</section>
+
+<hr class="sep">
+
+<!-- ══════════════════════ PLUMBING ══════════════════════ -->
+
+<section id="privacy">
+  <h2 data-num="§ 17">Privacy &amp; encryption</h2>
+  <p class="lead">
+    The privacy story isn't a feature; it's the architecture. Client data
+    never leaves the machine — so the remaining question is what happens if
+    the machine leaves you.
+  </p>
+  <h4>Encryption at rest</h4>
+  <p>
+    Optional, one toggle in Settings. AES-GCM 256 via the platform's WebCrypto,
+    with your passphrase stretched through PBKDF2-SHA256 at 250,000 iterations.
+    Under the hood it's a proper DEK/KEK design: one data-encryption key
+    encrypts everything, wrapped separately by your passphrase and by a
+    recovery code — so changing your passphrase re-wraps one key rather than
+    re-encrypting your world.
+  </p>
+  <h4>The recovery code</h4>
+  <p>
+    Enabling encryption hands you a one-time recovery code (eight groups of
+    four hex characters). Print it, vault it. Forget your passphrase and the
+    code gets you back in — at which point the app <em>forces</em> you to set a
+    new passphrase, invalidating the forgotten one. Lose both and the honest
+    answer is: the data is gone. That's the deal with real encryption, and the
+    reset flow says so before it wipes.
+  </p>
+  <h4>Everything else</h4>
+  <ul>
+    <li>Lock the app any time; unlock prompts on launch.</li>
+    <li>Enabling/disabling encryption is crash-safe (two-phase writes with boot-time cleanup) — a power cut mid-migration doesn't corrupt the store.</li>
+    <li>The AI features run against a local Ollama model on <code>localhost</code>. Prompts and drafts never traverse the internet. No Ollama, no AI — the buttons simply explain what to install.</li>
+    <li>Scan reports chain SHA-256 hashes so history tampering is detectable (§04).</li>
+  </ul>
+</section>
+
+<section id="backups">
+  <h2 data-num="§ 18">Backups &amp; schedules</h2>
+  <h4>Backups</h4>
+  <p>
+    One click exports everything as a single file; import restores it (with an
+    honest count — a partial restore reports itself as partial, not as
+    success). Add a passphrase at export and the backup itself is AES-GCM
+    encrypted; import detects the format and asks. Local-first means this file
+    is your disaster recovery — treat it accordingly.
+  </p>
+  <h4>Schedules</h4>
+  <p>Three kinds of recurring job, visible and editable in one place:</p>
+  <table>
+    <tr><th>Kind</th><th>Does</th></tr>
+    <tr><td>WP scan</td><td>Re-scans a domain on cadence; results append to the report history (and the trend chart)</td></tr>
+    <tr><td>Backup reminder</td><td>Nags on schedule — deliberately a reminder, not a silent auto-download</td></tr>
+    <tr><td>Report export</td><td>Queues the monthly executive-summary or portfolio pack</td></tr>
+  </table>
+  <p>
+    Schedules run while the app is open (it's a desktop tool, not a daemon)
+    and catch up gracefully after sleep.
+  </p>
+</section>
+
+<section id="power">
+  <h2 data-num="§ 19">Power features</h2>
+  <h4>Ask the app things</h4>
+  <p>
+    <kbd>⌘K</kbd> opens search. Short queries do instant substring search over
+    the standard. But type something shaped like a question — <em>"show me
+    high-severity risks for Acme"</em>, <em>"reports from last month"</em> —
+    and an <strong>Ask Post_Watch</strong> row appears. Hit <kbd>⌘↵</kbd> and
+    the local model translates your question into a structured query and runs
+    it over your actual data. Wrong guesses fall back to normal search;
+    nothing leaves the machine.
+  </p>
+  <h4>The rest of the toolbelt</h4>
+  <table>
+    <tr><th>Feature</th><th>Detail</th></tr>
+    <tr><td>Undo</td><td>Destructive actions pop an 8-second undo toast. One level, most recent action — a seatbelt, not a time machine.</td></tr>
+    <tr><td>Multi-window</td><td><kbd>⌘⇧N</kbd> opens a second window on the current section — risk register on one screen, the standard on the other.</td></tr>
+    <tr><td>Shortcut overlay</td><td><kbd>?</kbd> from anywhere lists every keyboard shortcut.</td></tr>
+    <tr><td>Search history</td><td>Recent queries appear as chips when the search field is empty.</td></tr>
+    <tr><td>Auto-update</td><td>The app checks for signed updates on launch and offers them in a corner toast.</td></tr>
+    <tr><td>Local AI</td><td>Install <a href="https://ollama.com" style="color:var(--mint)">Ollama</a>, pull a small model (llama3.2:3b is plenty), pick it in Settings. Powers finding explainers, fix snippets, risk-treatment drafts, gap narratives and conversational search.</td></tr>
+  </table>
+</section>
+
+<section id="appendix">
+  <h2 data-num="§ 20">Appendix</h2>
+  <h3>Keyboard shortcuts</h3>
+  <table>
+    <tr><th>Keys</th><th>Action</th></tr>
+    <tr><td><kbd>⌘K</kbd> or <kbd>/</kbd></td><td>Open search</td></tr>
+    <tr><td><kbd>⌘↵</kbd></td><td>Ask the NL query (inside search)</td></tr>
+    <tr><td><kbd>Esc</kbd></td><td>Close modal / overlay / search</td></tr>
+    <tr><td><kbd>?</kbd> or <kbd>⌘/</kbd></td><td>Shortcut overlay</td></tr>
+    <tr><td><kbd>⌘⇧N</kbd></td><td>New window on current section</td></tr>
+  </table>
+  <h3>Where things live</h3>
+  <ul>
+    <li><strong>Records</strong> — local storage inside the app's profile (optionally encrypted; see §17).</li>
+    <li><strong>Evidence files</strong> — the vault directory in the app's data folder, organised by owner.</li>
+    <li><strong>Exports</strong> — wherever your OS save dialog points them.</li>
+  </ul>
+  <h3>Format cheat-sheet</h3>
+  <table>
+    <tr><th>Data</th><th>PDF</th><th>CSV</th><th>Import</th></tr>
+    <tr><td>WP scan / compliance / exec / portfolio</td><td>✓</td><td>—</td><td>—</td></tr>
+    <tr><td>Statement of Applicability</td><td>✓</td><td>✓</td><td>via gap pre-fill</td></tr>
+    <tr><td>CAPA register</td><td>✓</td><td>✓</td><td>—</td></tr>
+    <tr><td>MR minutes</td><td>✓</td><td>—</td><td>—</td></tr>
+    <tr><td>KPIs</td><td>—</td><td>✓</td><td>—</td></tr>
+    <tr><td>Training log</td><td>—</td><td>✓</td><td>✓ CSV</td></tr>
+    <tr><td>Incident / asset registers</td><td>—</td><td>✓</td><td>—</td></tr>
+    <tr><td>Gap analysis</td><td>✓ (report)</td><td>—</td><td>✓ CSV</td></tr>
+    <tr><td>Everything at once</td><td>—</td><td>—</td><td>✓ backup file (optionally encrypted)</td></tr>
+  </table>
+  <div class="callout w">
+    <span class="t">A closing note on the obvious</span>
+    Post_Watch structures the evidence; it doesn't invent it. The
+    justifications, root causes, minutes and decisions are yours — the tool
+    just makes sure that when you've done the work, the record proves it.
+  </div>
+</section>
+
+<footer class="end">
+  post_watch v3.0 · field guide · all data local · print this page for the PDF edition
+</footer>
+
+</main>
+</div>
+</body>
+</html>
