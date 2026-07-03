@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { ShieldCheck, Hammer, ClipboardList, Bookmark } from 'lucide-react';
+import { useState, useMemo, lazy, Suspense } from 'react';
+import { ShieldCheck, Hammer, ClipboardList, Bookmark, FileCheck2 } from 'lucide-react';
 import type { ManagementClause, AnnexAControl, GapAnalysisSession } from '../../data/types';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import GapAnalysis from '../gap-analysis/GapAnalysis';
@@ -7,15 +7,20 @@ import ImplementationTracker from '../implementation/ImplementationTracker';
 import CheatsheetBuilder from '../cheatsheet/CheatsheetBuilder';
 import SavedItems from '../SavedItems';
 
+// Sprint 23: SoA matrix — lazy so its 93-row table + vault glue only parse
+// when the tab is first opened.
+const SoaMatrix = lazy(() => import('./SoaMatrix'));
+
 interface ComplyModuleProps {
   clauses: ManagementClause[];
   controls: AnnexAControl[];
 }
 
-type ComplyTab = 'gap-analysis' | 'projects' | 'checklists' | 'saved';
+type ComplyTab = 'gap-analysis' | 'soa' | 'projects' | 'checklists' | 'saved';
 
 const tabs: { id: ComplyTab; label: string; Icon: React.ElementType }[] = [
   { id: 'gap-analysis', label: 'Gap analysis',     Icon: ShieldCheck    },
+  { id: 'soa',          label: 'SoA',              Icon: FileCheck2     },
   { id: 'projects',     label: 'Implementations',  Icon: Hammer         },
   { id: 'checklists',   label: 'Audits',           Icon: ClipboardList  },
   { id: 'saved',        label: 'Saved items',      Icon: Bookmark       },
@@ -130,6 +135,11 @@ export default function ComplyModule({ clauses, controls }: ComplyModuleProps) {
       <div role="tabpanel" style={{ minHeight: 0 }}>
         {activeTab === 'gap-analysis' && (
           <GapAnalysis controls={controls} clauses={clauses} />
+        )}
+        {activeTab === 'soa' && (
+          <Suspense fallback={<p style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-redesign-mono)' }}>// Loading SoA…</p>}>
+            <SoaMatrix />
+          </Suspense>
         )}
         {activeTab === 'projects' && <ImplementationTracker />}
         {activeTab === 'checklists' && (

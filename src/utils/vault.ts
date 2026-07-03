@@ -35,7 +35,7 @@ import { isTauri } from './audit/fetchUtil';
 const VAULT_ROOT = 'post-watch/vault';
 const SAFE_NAME_RE = /[^a-zA-Z0-9._-]+/g;
 
-export type OwnerKind = 'gap' | 'scan';
+export type OwnerKind = 'gap' | 'scan' | 'soa';
 
 export interface AttachmentMeta {
   /** Internal UUID — unique across the vault. */

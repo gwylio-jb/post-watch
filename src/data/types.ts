@@ -92,8 +92,8 @@ export interface GapAnalysisSession {
  */
 export interface AttachmentMeta {
   id: string;
-  ownerKind: 'gap' | 'scan';
-  /** Foreign key: GapAnalysisItem.itemId or AuditReport.id. */
+  ownerKind: 'gap' | 'scan' | 'soa';
+  /** Foreign key: GapAnalysisItem.itemId, AuditReport.id, or SoaEntry key (`clientId:controlId`). */
   ownerId: string;
   name: string;
   /** Bytes on disk. */
@@ -102,6 +102,39 @@ export interface AttachmentMeta {
   /** Path relative to BaseDirectory.AppData. */
   path: string;
 }
+
+/**
+ * V3.0 (Sprint 23): Statement of Applicability entry — one row per
+ * Annex A control per client. This is the live, auditable data model
+ * behind the single most-scrutinized document in a certification audit:
+ * which controls apply, why (or why not), and how far implementation
+ * has progressed.
+ *
+ * Distinct from GapAnalysisItem on purpose: gap status measures HOW WELL
+ * a control is met at a point in time; SoA applicability records WHETHER
+ * the control is in scope at all and the standing justification. The two
+ * cross-reference (the matrix UI can seed implementation status from the
+ * latest gap session) but neither owns the other.
+ *
+ * Storage: `clause-control:soa` → Record<clientId, SoaEntry[]>.
+ * Evidence attaches via the vault with ownerKind 'soa' and
+ * ownerId `${clientId}:${controlId}`.
+ */
+export interface SoaEntry {
+  /** Annex A control id, e.g. "5.1". */
+  controlId: string;
+  applicable: boolean;
+  /**
+   * Why the control is included / excluded. Auditors read every one of
+   * these; the UI's completeness meter counts non-empty justifications.
+   */
+  justification: string;
+  implementationStatus: ImplementationStatus;
+  updatedAt: string;
+}
+
+/** The full per-client SoA map persisted under `clause-control:soa`. */
+export type SoaStore = Record<string, SoaEntry[]>;
 
 /**
  * V2.8 (Sprint 16): a named frozen copy of a session's items, captured

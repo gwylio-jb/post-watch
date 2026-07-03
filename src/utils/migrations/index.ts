@@ -24,11 +24,12 @@ import { migrateToV2 } from './v2';
 import { migrateToV3 } from './v3';
 import { migrateToV4 } from './v4';
 import { migrateToV5 } from './v5';
+import { migrateToV6 } from './v6';
 import { runClientMigration } from '../clientMigration';
 
 // Storage version after all migrations have run. Bump this number when a new
 // step lands. The key it's written to lives in `STORAGE_VERSION_KEY` below.
-const TARGET_VERSION = 5;
+const TARGET_VERSION = 6;
 const STORAGE_VERSION_KEY = 'clause-control:storage-version';
 
 const STEPS: Record<number, () => MigrationStepResult> = {
@@ -43,6 +44,8 @@ const STEPS: Record<number, () => MigrationStepResult> = {
   4: migrateToV4,
   // v5: Sprint 17 — evidence vault. Seeds the attachments metadata key.
   5: migrateToV5,
+  // v6: Sprint 23 (v3.0) — Statement of Applicability. Seeds the SoA map key.
+  6: migrateToV6,
 };
 
 export interface MigrationStepResult {
